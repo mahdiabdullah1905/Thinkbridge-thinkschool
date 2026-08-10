@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\thinkschool\\day - 1\\hello-cs\\hello-cs.csproj",
+      "projectUniqueName": "D:\\projects\\Thinkbridge-thinkschool\\day - 1\\hello-cs\\hello-cs.csproj",
       "projectName": "hello-cs",
-      "projectPath": "D:\\thinkschool\\day - 1\\hello-cs\\hello-cs.csproj",
+      "projectPath": "D:\\projects\\Thinkbridge-thinkschool\\day - 1\\hello-cs\\hello-cs.csproj",
       "packagesPath": "C:\\Users\\DHARANESH\\.nuget\\packages\\",
-      "outputPath": "D:\\thinkschool\\day - 1\\hello-cs\\obj\\",
+      "outputPath": "D:\\projects\\Thinkbridge-thinkschool\\day - 1\\hello-cs\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\DHARANESH\\AppData\\Roaming\\NuGet\\NuGet.Config"
