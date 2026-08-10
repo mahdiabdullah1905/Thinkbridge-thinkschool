@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+quotes.db
+quotes.db-shm
+quotes.db-wal

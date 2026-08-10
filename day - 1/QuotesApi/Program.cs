@@ -1,48 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using QuotesApi.Data;
-using QuotesApi.Models;
+using QuotesApi.Extensions;
+using QuotesApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=quotes.db"));
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-app.MapGet("/api/quotes", async (AppDbContext db) =>
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+using (var scope = app.Services.CreateScope())
 {
-    return await db.Quotes.ToListAsync();
-});
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
-app.MapPost("/api/quotes", async (Quote quote, AppDbContext db) =>
-{
-    db.Quotes.Add(quote);
-    await db.SaveChangesAsync();
-
-    return Results.Created($"/api/quotes/{quote.Id}", quote);
-});
-
-app.MapGet("/api/quotes/{id}", async (int id, AppDbContext db) =>
-{
-    var quote = await db.Quotes.FindAsync(id);
-
-    if (quote == null)
-        return Results.NotFound();
-
-    return Results.Ok(quote);
-});
-
-app.MapDelete("/api/quotes/{id}", async (int id, AppDbContext db) =>
-{
-    var quote = await db.Quotes.FindAsync(id);
-
-    if (quote == null)
-        return Results.NotFound();
-
-    db.Quotes.Remove(quote);
-    await db.SaveChangesAsync();
-
-    return Results.NoContent();
-});
+app.MapQuoteEndpoints();
 
 app.Run();
