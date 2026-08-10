@@ -16,12 +16,18 @@ namespace OrderApi.Services
         private readonly IOrderRepository _repository;
         private readonly IEmailService _emailService;
         private readonly ILogger<OrderService> _logger;
+        private readonly IEnumerable<IDiscountStrategy> _discountStrategies;
 
-        public OrderService(IOrderRepository repository, IEmailService emailService, ILogger<OrderService> logger)
+        public OrderService(
+            IOrderRepository repository, 
+            IEmailService emailService, 
+            ILogger<OrderService> logger,
+            IEnumerable<IDiscountStrategy> discountStrategies)
         {
             _repository = repository;
             _emailService = emailService;
             _logger = logger;
+            _discountStrategies = discountStrategies;
         }
 
         public async Task<OrderResponseDto> ProcessOrderAsync(CreateOrderDto request, CancellationToken ct)
@@ -51,6 +57,11 @@ namespace OrderApi.Services
 
             foreach (var itemDto in request.Items)
             {
+                if (itemDto.Quantity <= 0)
+                {
+                    throw new BusinessValidationException("Quantity must be greater than zero");
+                }
+
                 if (!productDict.TryGetValue(itemDto.ProductId, out var product))
                 {
                     throw new BusinessValidationException($"Product with ID {itemDto.ProductId} not found");
@@ -191,14 +202,13 @@ namespace OrderApi.Services
         {
             if (grandTotal <= 500) return 0;
 
-            if (cust.CustomerType == CustomerType.VIP)
+            foreach (var strategy in _discountStrategies.OrderBy(s => s.Priority))
             {
-                return grandTotal * 0.10m;
-            }
-            
-            if (cust.RegistrationDate < DateTime.UtcNow.AddYears(-5))
-            {
-                return grandTotal * 0.05m;
+                var discount = strategy.CalculateDiscount(grandTotal, cust);
+                if (discount > 0)
+                {
+                    return discount;
+                }
             }
 
             return 0;
