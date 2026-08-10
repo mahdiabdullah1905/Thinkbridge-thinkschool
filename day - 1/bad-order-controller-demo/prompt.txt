@@ -1,0 +1,32 @@
+Create a deliberately bad ASP.NET Core 10 Web API OrderController.cs for a refactoring exercise.
+
+The controller should be approximately 300 lines long and contain one giant POST /api/orders action that mixes:
+
+- business logic
+- EF Core database access
+- validation
+- HTTP response construction
+- mapping
+- logging
+
+Intentionally include realistic legacy-code smells, including:
+
+- four empty catch { } blocks that swallow exceptions
+- synchronous EF Core calls inside an async action
+- returning object instead of typed HTTP responses
+- duplicated code
+- deeply nested if statements
+- magic numbers and strings
+- poor naming
+- overly long method
+- direct DbContext access from the controller
+- business rules inside the controller
+- validation mixed with database access
+- null dereference bugs
+- at least one off-by-one bug
+- unnecessary repeated database queries
+- poor separation of concerns
+- no tests
+
+Make the code look like realistic code written by a colleague several years ago, not obviously artificial nonsense.
+
