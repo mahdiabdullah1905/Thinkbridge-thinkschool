@@ -4,7 +4,8 @@ using QuotesApi.Repositories;
 using QuotesApi.Models;
 using QuotesApi.Filters;
 using Microsoft.AspNetCore.Mvc;
-
+using QuotesApi.Services;
+using QuotesApi.Middleware;
 namespace QuotesApi.Extensions;
 
 public static class ProgramExtensions
@@ -16,6 +17,9 @@ public static class ProgramExtensions
 
         services.AddScoped<IQuoteRepository, QuoteRepository>();
         services.AddScoped<ICollectionRepository, CollectionRepository>();
+        
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddTransient<ExceptionHandlingMiddleware>();
         
         services.AddProblemDetails(); // Built-in support for ProblemDetails
     }
@@ -89,14 +93,14 @@ public static class ProgramExtensions
         })
         .AddEndpointFilter<ValidationFilter<CreateCollectionRequest>>();
 
-        group.MapPost("/{id}/quotes", async (int id, AddQuoteToCollectionRequest request, ICollectionRepository repo, CancellationToken ct) =>
+        group.MapPost("/{id}/quotes", async (int id, AddQuoteToCollectionRequest request, ICollectionRepository repo, IClock clock, CancellationToken ct) =>
         {
             var collection = await repo.GetByIdAsync(id, ct);
             if (collection is null) return Results.NotFound();
 
             try
             {
-                collection.AddItem(request.QuoteId);
+                collection.AddItem(request.QuoteId, clock.UtcNow);
                 await repo.UpdateAsync(collection, ct);
                 return Results.Ok(collection);
             }

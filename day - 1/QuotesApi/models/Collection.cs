@@ -28,7 +28,7 @@ public class Collection
         Name = newName.Trim();
     }
 
-    public void AddItem(int quoteId)
+    public void AddItem(int quoteId, DateTimeOffset addedAt)
     {
         if (_items.Count >= 50)
         {
@@ -40,7 +40,7 @@ public class Collection
             throw new InvalidOperationException($"Quote {quoteId} is already in the collection.");
         }
 
-        _items.Add(new CollectionItem(quoteId, DateTimeOffset.UtcNow));
+        _items.Add(new CollectionItem(quoteId, addedAt));
     }
 
     public bool RemoveItem(int quoteId)
