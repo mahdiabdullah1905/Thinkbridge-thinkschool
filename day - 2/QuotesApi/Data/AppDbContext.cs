@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +29,18 @@ public class AppDbContext : DbContext
                 ib.WithOwner().HasForeignKey("CollectionId");
                 ib.HasKey("Id");
                 ib.Property<int>("Id").ValueGeneratedOnAdd();
+            });
+        });
+
+        modelBuilder.Entity<User>(b =>
+        {
+            b.HasKey(u => u.Id);
+            b.HasIndex(u => u.Email).IsUnique();
+            b.HasData(new User
+            {
+                Id = 1,
+                Email = "test@example.com",
+                PasswordHash = "$2a$11$iWog2Xui8CDiamZd.HXvYeFqEiGoyGZskgF3nP2vRCiHWz865dT7S"
             });
         });
     }

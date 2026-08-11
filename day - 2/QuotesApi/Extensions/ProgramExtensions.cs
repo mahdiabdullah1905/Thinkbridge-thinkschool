@@ -6,6 +6,12 @@ using QuotesApi.Filters;
 using Microsoft.AspNetCore.Mvc;
 using QuotesApi.Services;
 using QuotesApi.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+
 namespace QuotesApi.Extensions;
 
 public static class ProgramExtensions
@@ -14,6 +20,26 @@ public static class ProgramExtensions
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite(configuration.GetConnectionString("DefaultConnection") ?? "Data Source=quotes.db"));
+
+        var jwtKey = configuration["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = configuration["Jwt:Issuer"],
+                    ValidAudience = configuration["Jwt:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+                };
+            });
+
+        services.AddAuthorization();
 
         services.AddScoped<IQuoteRepository, QuoteRepository>();
         services.AddScoped<ICollectionRepository, CollectionRepository>();
@@ -57,7 +83,8 @@ public static class ProgramExtensions
 
             return Results.Created($"/api/quotes/{quote.Id}", quote);
         })
-        .AddEndpointFilter<ValidationFilter<CreateQuoteRequest>>();
+        .AddEndpointFilter<ValidationFilter<CreateQuoteRequest>>()
+        .RequireAuthorization();
 
         group.MapGet("/{id}", async (int id, IQuoteRepository repo, CancellationToken ct) =>
         {
@@ -73,7 +100,8 @@ public static class ProgramExtensions
             quote.Delete();
             await repo.DeleteQuoteAsync(quote, ct);
             return Results.NoContent();
-        });
+        })
+        .RequireAuthorization();
     }
 
     public static void MapCollectionEndpoints(this IEndpointRouteBuilder app)
@@ -126,5 +154,51 @@ public static class ProgramExtensions
             await repo.UpdateAsync(collection, ct);
             return Results.NoContent();
         });
+    }
+
+    public static void MapAuthEndpoints(this IEndpointRouteBuilder app, IConfiguration config)
+    {
+        var group = app.MapGroup("/api/auth");
+
+        group.MapPost("/login", async (LoginRequest request, AppDbContext db, IClock clock, CancellationToken ct) =>
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
+            if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                return Results.Unauthorized();
+            }
+
+            var jwtKey = config["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
+            var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+            
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: config["Jwt:Issuer"],
+                audience: config["Jwt:Audience"],
+                claims: claims,
+                expires: clock.UtcNow.UtcDateTime.AddMinutes(15),
+                signingCredentials: new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256)
+            );
+
+            var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+            
+            user.RefreshToken = Guid.NewGuid().ToString();
+            user.RefreshTokenExpiryTime = clock.UtcNow.UtcDateTime.AddDays(7);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new AuthResponse
+            {
+                AccessToken = accessToken,
+                RefreshToken = user.RefreshToken,
+                ExpiresIn = 15 * 60
+            });
+        })
+        .AddEndpointFilter<ValidationFilter<LoginRequest>>();
     }
 }

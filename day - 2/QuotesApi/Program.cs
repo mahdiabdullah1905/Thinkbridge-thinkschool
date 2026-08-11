@@ -17,6 +17,10 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.MigrateAsync();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAuthEndpoints(builder.Configuration);
 app.MapQuoteEndpoints();
 app.MapCollectionEndpoints();
 
