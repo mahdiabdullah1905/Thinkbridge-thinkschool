@@ -156,6 +156,47 @@ public static class ProgramExtensions
         });
     }
 
+    private static string GenerateSecureToken()
+    {
+        var randomBytes = new byte[32];
+        using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomBytes);
+        }
+        return Convert.ToBase64String(randomBytes);
+    }
+
+    private static string HashToken(string token)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
+    }
+
+    private static string GenerateJwt(User user, IConfiguration config, IClock clock)
+    {
+        var jwtKey = config["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+        
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: config["Jwt:Issuer"],
+            audience: config["Jwt:Audience"],
+            claims: claims,
+            expires: clock.UtcNow.UtcDateTime.AddMinutes(15),
+            signingCredentials: new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256)
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app, IConfiguration config)
     {
         var group = app.MapGroup("/api/auth");
@@ -168,37 +209,110 @@ public static class ProgramExtensions
                 return Results.Unauthorized();
             }
 
-            var jwtKey = config["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
-            var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
-            
-            var claims = new[]
+            var accessToken = GenerateJwt(user, config, clock);
+            var rawRefreshToken = GenerateSecureToken();
+            var refreshTokenHash = HashToken(rawRefreshToken);
+
+            var refreshTokenRecord = new RefreshToken
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                TokenHash = refreshTokenHash,
+                UserId = user.Id,
+                FamilyId = Guid.NewGuid(),
+                ExpiresAt = clock.UtcNow.UtcDateTime.AddDays(7)
             };
 
-            var token = new JwtSecurityToken(
-                issuer: config["Jwt:Issuer"],
-                audience: config["Jwt:Audience"],
-                claims: claims,
-                expires: clock.UtcNow.UtcDateTime.AddMinutes(15),
-                signingCredentials: new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256)
-            );
-
-            var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-            
-            user.RefreshToken = Guid.NewGuid().ToString();
-            user.RefreshTokenExpiryTime = clock.UtcNow.UtcDateTime.AddDays(7);
+            db.RefreshTokens.Add(refreshTokenRecord);
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(new AuthResponse
             {
                 AccessToken = accessToken,
-                RefreshToken = user.RefreshToken,
+                RefreshToken = rawRefreshToken,
                 ExpiresIn = 15 * 60
             });
         })
         .AddEndpointFilter<ValidationFilter<LoginRequest>>();
+
+        group.MapPost("/refresh", async (RefreshRequest request, AppDbContext db, IClock clock, ILogger<Program> logger, CancellationToken ct) =>
+        {
+            var tokenHash = HashToken(request.RefreshToken);
+            var storedToken = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == tokenHash, ct);
+
+            if (storedToken is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            // Check if the token was already used in a rotation or revoked
+            if (storedToken.RevokedAt is not null || storedToken.ReplacedByTokenHash is not null)
+            {
+                if (storedToken.ReplacedByTokenHash is not null)
+                {
+                    // This is a reuse/theft attempt during rotation!
+                    logger.LogWarning("Security Event: Refresh token reuse detected for family {FamilyId}. Entire token family revoked.", storedToken.FamilyId);
+                    
+                    var familyTokens = await db.RefreshTokens
+                        .Where(r => r.FamilyId == storedToken.FamilyId && r.RevokedAt == null)
+                        .ToListAsync(ct);
+                        
+                    foreach (var token in familyTokens)
+                    {
+                        token.RevokedAt = clock.UtcNow.UtcDateTime;
+                    }
+                    await db.SaveChangesAsync(ct);
+                }
+                
+                return Results.Unauthorized();
+            }
+
+            if (storedToken.ExpiresAt < clock.UtcNow.UtcDateTime)
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == storedToken.UserId, ct);
+            if (user is null) return Results.Unauthorized();
+
+            var newAccessToken = GenerateJwt(user, config, clock);
+            var newRawRefreshToken = GenerateSecureToken();
+            var newRefreshTokenHash = HashToken(newRawRefreshToken);
+
+            storedToken.RevokedAt = clock.UtcNow.UtcDateTime;
+            storedToken.ReplacedByTokenHash = newRefreshTokenHash;
+
+            var newRefreshTokenRecord = new RefreshToken
+            {
+                TokenHash = newRefreshTokenHash,
+                UserId = user.Id,
+                FamilyId = storedToken.FamilyId,
+                ExpiresAt = clock.UtcNow.UtcDateTime.AddDays(7)
+            };
+
+            db.RefreshTokens.Add(newRefreshTokenRecord);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new AuthResponse
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRawRefreshToken,
+                ExpiresIn = 15 * 60
+            });
+        })
+        .AddEndpointFilter<ValidationFilter<RefreshRequest>>();
+
+        group.MapPost("/logout", async (LogoutRequest request, AppDbContext db, IClock clock, CancellationToken ct) =>
+        {
+            var tokenHash = HashToken(request.RefreshToken);
+            var storedToken = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == tokenHash, ct);
+
+            if (storedToken is not null && storedToken.RevokedAt is null)
+            {
+                storedToken.RevokedAt = clock.UtcNow.UtcDateTime;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.NoContent();
+        })
+        .AddEndpointFilter<ValidationFilter<LogoutRequest>>();
     }
 }

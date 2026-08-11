@@ -18,3 +18,15 @@ public class AuthResponse
     public string RefreshToken { get; set; } = string.Empty;
     public int ExpiresIn { get; set; }
 }
+
+public class RefreshRequest
+{
+    [Required]
+    public string RefreshToken { get; set; } = string.Empty;
+}
+
+public class LogoutRequest
+{
+    [Required]
+    public string RefreshToken { get; set; } = string.Empty;
+}

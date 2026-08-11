@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +43,13 @@ public class AppDbContext : DbContext
                 Email = "test@example.com",
                 PasswordHash = "$2a$11$iWog2Xui8CDiamZd.HXvYeFqEiGoyGZskgF3nP2vRCiHWz865dT7S"
             });
+        });
+
+        modelBuilder.Entity<RefreshToken>(b =>
+        {
+            b.HasKey(r => r.Id);
+            b.HasIndex(r => r.TokenHash).IsUnique();
+            b.HasIndex(r => r.FamilyId);
         });
     }
 }
