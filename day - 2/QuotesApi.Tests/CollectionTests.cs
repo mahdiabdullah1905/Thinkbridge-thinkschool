@@ -68,12 +68,11 @@ public class CollectionTests
     }
 
     [Fact]
-    public void RemoveItem_NonExistingQuoteId_ReturnsFalse()
+    public void RemoveItem_NonExistingQuoteId_ThrowsInvalidOperationException()
     {
         var collection = new Collection("My Quotes", "user123");
-        var result = collection.RemoveItem(99);
         
-        Assert.False(result);
+        Assert.Throws<InvalidOperationException>(() => collection.RemoveItem(99));
     }
 
     [Fact]

@@ -48,7 +48,7 @@ public class Collection
         var item = _items.FirstOrDefault(i => i.QuoteId == quoteId);
         if (item == null)
         {
-            return false;
+            throw new InvalidOperationException($"Quote {quoteId} is not in the collection.");
         }
 
         return _items.Remove(item);
