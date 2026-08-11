@@ -28,8 +28,8 @@ public class CollectionRepositoryTests : IDisposable
     public async Task AddAndGetCollection_WithItems_PersistsProperly()
     {
         var collection = new Collection("Test Collection", "owner1");
-        collection.AddItem(1);
-        collection.AddItem(2);
+        collection.AddItem(1, DateTimeOffset.UtcNow);
+        collection.AddItem(2, DateTimeOffset.UtcNow);
 
         await _repository.AddAsync(collection, CancellationToken.None);
 
