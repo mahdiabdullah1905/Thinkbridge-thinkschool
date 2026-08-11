@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Quote>().HasQueryFilter(q => !q.IsDeleted);
+
         modelBuilder.Entity<Collection>(b =>
         {
             b.HasKey(c => c.Id);

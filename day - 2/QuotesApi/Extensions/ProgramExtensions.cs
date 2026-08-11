@@ -46,12 +46,13 @@ public static class ProgramExtensions
 
         group.MapPost("/", async (CreateQuoteRequest request, IQuoteRepository repo, CancellationToken ct) =>
         {
-            var quote = new Quote
+            var result = Quote.Create(request.Author, request.Text);
+            if (!result.IsSuccess)
             {
-                Author = request.Author,
-                Text = request.Text
-            };
+                return Results.BadRequest(new ProblemDetails { Title = "Invalid Quote", Detail = result.Error });
+            }
 
+            var quote = result.Value!;
             await repo.AddQuoteAsync(quote, ct);
 
             return Results.Created($"/api/quotes/{quote.Id}", quote);
@@ -69,6 +70,7 @@ public static class ProgramExtensions
             var quote = await repo.GetQuoteByIdAsync(id, ct);
             if (quote is null) return Results.NotFound();
 
+            quote.Delete();
             await repo.DeleteQuoteAsync(quote, ct);
             return Results.NoContent();
         });

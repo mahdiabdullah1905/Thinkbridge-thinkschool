@@ -45,7 +45,6 @@ public class QuoteRepository : IQuoteRepository
     public async Task DeleteQuoteAsync(Quote quote, CancellationToken ct)
     {
         _logger.LogInformation("Deleting quote with id {Id}", quote.Id);
-        _context.Quotes.Remove(quote);
         await _context.SaveChangesAsync(ct);
     }
 }
