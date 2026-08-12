@@ -1,0 +1,25 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.x'
+        
+    - name: Run Day 2 Regression Tests
+      run: dotnet test "day - 2/QuotesApi.Tests/QuotesApi.Tests.csproj"
+      
+    - name: Run Day 3 Task 3 Integration Tests
+      run: dotnet test "day - 3/task - 3/Task3.Tests/Task3.Tests.csproj"
