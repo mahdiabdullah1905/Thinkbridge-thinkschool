@@ -23,3 +23,6 @@ jobs:
       
     - name: Run Day 3 Task 3 Integration Tests
       run: dotnet test "day - 3/task - 3/Task3.Tests/Task3.Tests.csproj"
+      
+    - name: Run Day 3 Task 7 Integration Tests
+      run: dotnet test "day - 3/task - 7/Quotes.Tests.Integration/Quotes.Tests.Integration.csproj"
