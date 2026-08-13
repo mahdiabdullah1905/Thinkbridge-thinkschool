@@ -4,6 +4,7 @@ using QuotesApi.Data;
 using QuotesApi.Extensions;
 using QuotesApi.Middleware;
 using OpenTelemetry.Trace;
+using QuotesApi.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext());
 
 builder.Services.AddTransient<TraceIdMiddleware>();
+
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddOpenTelemetry()
@@ -39,7 +42,7 @@ using (var scope = app.Services.CreateScope())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapAuthEndpoints(builder.Configuration);
+app.MapAuthEndpoints();
 app.MapQuoteEndpoints();
 app.MapCollectionEndpoints();
 

@@ -12,6 +12,8 @@ using System.Text;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using System.Diagnostics;
+using QuotesApi.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace QuotesApi.Extensions;
 
@@ -24,23 +26,31 @@ public static class ProgramExtensions
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite(configuration.GetConnectionString("DefaultConnection") ?? "Data Source=quotes.db"));
 
-        var jwtKey = configuration["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
-        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
-
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((options, jwt) =>
             {
+                var jwtOptions = jwt.Value;
+                if (string.IsNullOrEmpty(jwtOptions.Key))
+                {
+                    throw new InvalidOperationException("JWT configuration is missing or invalid. Check User Secrets.");
+                }
+
+                var keyBytes = Encoding.UTF8.GetBytes(jwtOptions.Key);
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],
-                    ValidAudience = configuration["Jwt:Audience"],
+                    ValidIssuer = jwtOptions.Issuer,
+                    ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
                 };
             });
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer();
 
         services.AddAuthorization();
 
@@ -188,10 +198,10 @@ public static class ProgramExtensions
         return Convert.ToBase64String(hash);
     }
 
-    private static string GenerateJwt(User user, IConfiguration config, IClock clock)
+    private static string GenerateJwt(User user, IOptionsSnapshot<JwtOptions> jwtOptionsMonitor, IClock clock)
     {
-        var jwtKey = config["Jwt:Key"] ?? "super_secret_default_development_key_with_at_least_256_bits_length_123456";
-        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+        var jwtOptions = jwtOptionsMonitor.Value;
+        var keyBytes = Encoding.UTF8.GetBytes(jwtOptions.Key);
         
         var claims = new[]
         {
@@ -201,8 +211,8 @@ public static class ProgramExtensions
         };
 
         var token = new JwtSecurityToken(
-            issuer: config["Jwt:Issuer"],
-            audience: config["Jwt:Audience"],
+            issuer: jwtOptions.Issuer,
+            audience: jwtOptions.Audience,
             claims: claims,
             expires: clock.UtcNow.UtcDateTime.AddMinutes(15),
             signingCredentials: new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256)
@@ -211,11 +221,11 @@ public static class ProgramExtensions
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public static void MapAuthEndpoints(this IEndpointRouteBuilder app, IConfiguration config)
+    public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/auth");
 
-        group.MapPost("/login", async (LoginRequest request, AppDbContext db, IClock clock, CancellationToken ct) =>
+        group.MapPost("/login", async (LoginRequest request, AppDbContext db, IClock clock, IOptionsSnapshot<JwtOptions> jwtOptions, CancellationToken ct) =>
         {
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
             if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
@@ -223,7 +233,7 @@ public static class ProgramExtensions
                 return Results.Unauthorized();
             }
 
-            var accessToken = GenerateJwt(user, config, clock);
+            var accessToken = GenerateJwt(user, jwtOptions, clock);
             var rawRefreshToken = GenerateSecureToken();
             var refreshTokenHash = HashToken(rawRefreshToken);
 
@@ -247,7 +257,7 @@ public static class ProgramExtensions
         })
         .AddEndpointFilter<ValidationFilter<LoginRequest>>();
 
-        group.MapPost("/refresh", async (RefreshRequest request, AppDbContext db, IClock clock, ILogger<Program> logger, CancellationToken ct) =>
+        group.MapPost("/refresh", async (RefreshRequest request, AppDbContext db, IClock clock, ILogger<Program> logger, IOptionsSnapshot<JwtOptions> jwtOptions, CancellationToken ct) =>
         {
             var tokenHash = HashToken(request.RefreshToken);
             var storedToken = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == tokenHash, ct);
@@ -287,7 +297,7 @@ public static class ProgramExtensions
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == storedToken.UserId, ct);
             if (user is null) return Results.Unauthorized();
 
-            var newAccessToken = GenerateJwt(user, config, clock);
+            var newAccessToken = GenerateJwt(user, jwtOptions, clock);
             var newRawRefreshToken = GenerateSecureToken();
             var newRefreshTokenHash = HashToken(newRawRefreshToken);
 
