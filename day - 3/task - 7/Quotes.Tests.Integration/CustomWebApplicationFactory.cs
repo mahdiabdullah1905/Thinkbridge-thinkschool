@@ -34,11 +34,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 services.Remove(dbContextDescriptor);
             }
 
-            var dbConnectionDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbConnection));
-            if (dbConnectionDescriptor != null)
+            // Targeted removal of SQLite-specific EF Core registrations
+            var sqliteServices = services.Where(d => 
+                d.ImplementationType != null && 
+                d.ImplementationType.FullName != null &&
+                d.ImplementationType.FullName.Contains("Sqlite")
+            ).ToList();
+
+            foreach (var service in sqliteServices)
             {
-                services.Remove(dbConnectionDescriptor);
+                services.Remove(service);
             }
 
             services.AddDbContext<AppDbContext>(options =>
