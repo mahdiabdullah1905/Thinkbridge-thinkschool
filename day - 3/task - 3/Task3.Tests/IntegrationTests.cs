@@ -14,7 +14,10 @@ using Task3;
 
 namespace Task3.Tests;
 
-public record TestQuote(int Id, string Author, string Text); public class IntegrationTests : IDisposable
+public record TestQuote(int Id, string Author, string Text);
+public record TestPaginatedResponse(int Page, int Size, int TotalCount, List<TestQuote> Items);
+
+public class IntegrationTests : IDisposable
 {
     private readonly WebApplicationFactory<Task3Marker> _factory;
     private readonly SqliteConnection _connection;
@@ -143,5 +146,61 @@ public record TestQuote(int Id, string Author, string Text); public class Integr
 
         var refreshResp2 = await client.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest { RefreshToken = refreshTokenB });
         refreshResp2.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    [Fact]
+    public async Task Scenario6_GetQuotes_ReturnsPaginatedList()
+    {
+        var client = _factory.CreateClient();
+        var (token, _) = await LoginAsync(client, "user1@example.com");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Seed a quote
+        var createResp = await client.PostAsJsonAsync("/api/quotes", new CreateQuoteRequest { Author = "user1@example.com", Text = "GetQuotes test" });
+        createResp.EnsureSuccessStatusCode();
+
+        // Call GET /api/quotes
+        var getResp = await client.GetAsync("/api/quotes");
+        getResp.EnsureSuccessStatusCode();
+
+        var page = await getResp.Content.ReadFromJsonAsync<TestPaginatedResponse>();
+        page.Should().NotBeNull();
+        page!.Items.Count.Should().BeGreaterThan(0);
+        page.TotalCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Scenario7_GetQuoteById_ReturnsQuote()
+    {
+        var client = _factory.CreateClient();
+        var (token, _) = await LoginAsync(client, "user1@example.com");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Seed a quote
+        var createResp = await client.PostAsJsonAsync("/api/quotes", new CreateQuoteRequest { Author = "user1@example.com", Text = "GetById test" });
+        createResp.EnsureSuccessStatusCode();
+        var createdQuote = await createResp.Content.ReadFromJsonAsync<TestQuote>();
+
+        // Call GET /api/quotes/{id}
+        var getResp = await client.GetAsync($"/api/quotes/{createdQuote!.Id}");
+        getResp.EnsureSuccessStatusCode();
+        
+        var retrievedQuote = await getResp.Content.ReadFromJsonAsync<TestQuote>();
+        retrievedQuote.Should().NotBeNull();
+        retrievedQuote!.Text.Should().Be("GetById test");
+    }
+
+    [Fact]
+    public async Task Scenario8_PostQuote_InvalidData_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+        var (token, _) = await LoginAsync(client, "user1@example.com");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // POST invalid data (empty Text)
+        var response = await client.PostAsJsonAsync("/api/quotes", new CreateQuoteRequest { Author = "user1@example.com", Text = "" });
+        
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        problem.GetProperty("title").GetString().Should().NotBeNullOrEmpty();
     }
 }
