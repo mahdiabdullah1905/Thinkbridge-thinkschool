@@ -70,17 +70,26 @@ public static class ProgramExtensions
             });
         });
 
-        group.MapPost("/", async (CreateQuoteRequest request, IQuoteRepository repo, CancellationToken ct) =>
+        group.MapPost("/", async (CreateQuoteRequest request, IQuoteRepository repo, ILogger<Program> logger, CancellationToken ct) =>
         {
+            logger.LogInformation("Received request to create a quote for author {Author}", request.Author);
+
             var result = Quote.Create(request.Author, request.Text);
             if (!result.IsSuccess)
             {
+                logger.LogWarning("Quote validation failed for author {Author}: {Error}", request.Author, result.Error);
                 return Results.BadRequest(new ProblemDetails { Title = "Invalid Quote", Detail = result.Error });
             }
 
             var quote = result.Value!;
+            logger.LogInformation("Successfully instantiated quote with ID {QuoteId}", quote.Id);
+
+            logger.LogInformation("Saving quote {QuoteId} to the database", quote.Id);
             await repo.AddQuoteAsync(quote, ct);
 
+            logger.LogInformation("Successfully saved quote {QuoteId}", quote.Id);
+
+            logger.LogInformation("Returning Created response for quote {QuoteId}", quote.Id);
             return Results.Created($"/api/quotes/{quote.Id}", quote);
         })
         .AddEndpointFilter<ValidationFilter<CreateQuoteRequest>>()
