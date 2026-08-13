@@ -45,6 +45,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(_dbContainer.GetConnectionString());
+                options.ReplaceService<Microsoft.EntityFrameworkCore.Migrations.IMigrator, EnsureCreatedMigrator>();
             });
 
             var clockDescriptor = services.SingleOrDefault(
@@ -80,6 +81,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             DELETE FROM Users;
         ");
     }
+}
+
+public class EnsureCreatedMigrator : Microsoft.EntityFrameworkCore.Migrations.IMigrator
+{
+    private readonly Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator _creator;
+    public EnsureCreatedMigrator(Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator creator)
+    {
+        _creator = creator;
+    }
+
+    public void Migrate(string? targetMigration = null) => _creator.EnsureCreated();
+    public System.Threading.Tasks.Task MigrateAsync(string? targetMigration = null, System.Threading.CancellationToken cancellationToken = default) => _creator.EnsureCreatedAsync(cancellationToken);
+    public string GenerateScript(string? fromMigration = null, string? toMigration = null, Microsoft.EntityFrameworkCore.Migrations.MigrationsSqlGenerationOptions options = Microsoft.EntityFrameworkCore.Migrations.MigrationsSqlGenerationOptions.Default) => "";
+    public string GenerateScript(string? fromMigration = null, string? toMigration = null, Microsoft.EntityFrameworkCore.Migrations.MigrationsSqlGenerationOptions options = Microsoft.EntityFrameworkCore.Migrations.MigrationsSqlGenerationOptions.Default, string? idempotentScript = null) => "";
+    public bool HasPendingModelChanges() => false;
 }
 
 [CollectionDefinition("SharedTestCollection")]
