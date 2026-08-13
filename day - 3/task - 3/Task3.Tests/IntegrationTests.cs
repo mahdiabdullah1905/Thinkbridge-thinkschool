@@ -1,5 +1,6 @@
 using Xunit;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,8 @@ public class IntegrationTests : IDisposable
 
         _factory = new WebApplicationFactory<Task3Marker>().WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Testing");
+
             builder.ConfigureServices(services =>
             {
                 var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));

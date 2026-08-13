@@ -12,9 +12,11 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using Task3;
+using QuotesApi.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddAuthentication(defaultScheme: "SmartPolicy")
@@ -78,7 +80,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapAuthEndpoints(builder.Configuration);
+app.MapAuthEndpoints();
 app.MapCollectionEndpoints();
 
 var quoteGroup = app.MapGroup("/api/quotes");
