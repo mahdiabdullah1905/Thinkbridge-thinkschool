@@ -9,11 +9,11 @@ using Xunit;
 
 namespace QuotesApi.Tests;
 
-public class CollectionCancellationTests : IClassFixture<WebApplicationFactory<Program>>
+public class CollectionCancellationTests : IClassFixture<TestingWebApplicationFactory>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public CollectionCancellationTests(WebApplicationFactory<Program> factory)
+    public CollectionCancellationTests(TestingWebApplicationFactory factory)
     {
         _factory = factory;
     }

@@ -11,7 +11,7 @@ public class DependencyInjectionTests
     [Fact]
     public void Singleton_IClock_ReturnsSameInstance()
     {
-        var app = new WebApplicationFactory<Program>();
+        var app = new TestingWebApplicationFactory();
         
         using var scope = app.Services.CreateScope();
         var clock1 = scope.ServiceProvider.GetRequiredService<IClock>();
@@ -24,7 +24,7 @@ public class DependencyInjectionTests
     [Fact]
     public void Scoped_IQuoteRepository_ReturnsSameInstancePerScopeButDifferentAcrossScopes()
     {
-        var app = new WebApplicationFactory<Program>();
+        var app = new TestingWebApplicationFactory();
         
         using var scope1 = app.Services.CreateScope();
         var repo1a = scope1.ServiceProvider.GetRequiredService<IQuoteRepository>();
@@ -43,7 +43,7 @@ public class DependencyInjectionTests
     [Fact]
     public void Transient_ExceptionHandlingMiddleware_ReturnsDifferentInstances()
     {
-        var app = new WebApplicationFactory<Program>();
+        var app = new TestingWebApplicationFactory();
         
         using var scope = app.Services.CreateScope();
         var middleware1 = scope.ServiceProvider.GetRequiredService<ExceptionHandlingMiddleware>();

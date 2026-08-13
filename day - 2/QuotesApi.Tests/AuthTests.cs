@@ -9,12 +9,12 @@ using Xunit;
 
 namespace QuotesApi.Tests;
 
-public class AuthTests : IClassFixture<WebApplicationFactory<Program>>
+public class AuthTests : IClassFixture<TestingWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly WebApplicationFactory<Program> _factory;
 
-    public AuthTests(WebApplicationFactory<Program> factory)
+    public AuthTests(TestingWebApplicationFactory factory)
     {
         var dbName = $"Data Source=test_auth_{Guid.NewGuid()}.db";
 
