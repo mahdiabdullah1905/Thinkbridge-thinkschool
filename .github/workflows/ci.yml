@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.x'
+
+    - name: Create CI Solution
+      run: |
+        dotnet new sln -n CI
+        dotnet sln CI.slnx add "day - 2/QuotesApi.Tests/QuotesApi.Tests.csproj" "day - 3/task - 3/Task3.Tests/Task3.Tests.csproj" "day - 3/task - 7/Quotes.Tests.Integration/Quotes.Tests.Integration.csproj"
+
+    - name: Restore dependencies
+      run: dotnet restore CI.slnx
+
+    - name: Build
+      run: dotnet build CI.slnx --no-restore
+
+    - name: Test
+      run: dotnet test CI.slnx --no-build --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+
+    - name: Install ReportGenerator
+      if: always()
+      run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+    - name: Generate Coverage Report
+      if: always()
+      run: reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:"Html;JsonSummary"
+
+    - name: Check Coverage Threshold
+      if: success()
+      shell: pwsh
+      run: |
+        $summary = Get-Content coveragereport/Summary.json | ConvertFrom-Json
+        $coverage = $summary.summary.linecoverage
+        Write-Output "Total Line Coverage: $coverage%"
+        if ($coverage -lt 70) {
+            Write-Error "Code coverage is below the minimum threshold of 70%."
+            exit 1
+        }
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: "**/TestResults/**/*.trx"
+
+    - name: Upload Code Coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-coverage
+        path: coveragereport/

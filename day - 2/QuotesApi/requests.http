@@ -1,0 +1,13 @@
+POST http://localhost:5225/api/quotes
+Content-Type: application/json
+
+{
+    "author": "Albert Einstein",
+    "text": "Life is beautiful"
+}
+###
+GET http://localhost:5225/api/quotes
+
+###
+
+GET http://localhost:5225/api/quotes/1

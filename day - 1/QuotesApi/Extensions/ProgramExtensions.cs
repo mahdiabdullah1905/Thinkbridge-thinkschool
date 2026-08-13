@@ -3,6 +3,7 @@ using QuotesApi.Data;
 using QuotesApi.Repositories;
 using QuotesApi.Models;
 using QuotesApi.Filters;
+using Microsoft.AspNetCore.Mvc;
 
 namespace QuotesApi.Extensions;
 
@@ -14,6 +15,7 @@ public static class ProgramExtensions
             options.UseSqlite(configuration.GetConnectionString("DefaultConnection") ?? "Data Source=quotes.db"));
 
         services.AddScoped<IQuoteRepository, QuoteRepository>();
+        services.AddScoped<ICollectionRepository, CollectionRepository>();
         
         services.AddProblemDetails(); // Built-in support for ProblemDetails
     }
@@ -64,6 +66,58 @@ public static class ProgramExtensions
             if (quote is null) return Results.NotFound();
 
             await repo.DeleteQuoteAsync(quote, ct);
+            return Results.NoContent();
+        });
+    }
+
+    public static void MapCollectionEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/collections");
+
+        group.MapPost("/", async (CreateCollectionRequest request, ICollectionRepository repo, CancellationToken ct) =>
+        {
+            try
+            {
+                var collection = new Collection(request.Name, request.OwnerId);
+                await repo.AddAsync(collection, ct);
+                return Results.Created($"/api/collections/{collection.Id}", collection);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new ProblemDetails { Title = "Invalid Collection", Detail = ex.Message });
+            }
+        })
+        .AddEndpointFilter<ValidationFilter<CreateCollectionRequest>>();
+
+        group.MapPost("/{id}/quotes", async (int id, AddQuoteToCollectionRequest request, ICollectionRepository repo, CancellationToken ct) =>
+        {
+            var collection = await repo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+
+            try
+            {
+                collection.AddItem(request.QuoteId);
+                await repo.UpdateAsync(collection, ct);
+                return Results.Ok(collection);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new ProblemDetails { Title = "Cannot add quote", Detail = ex.Message });
+            }
+        })
+        .AddEndpointFilter<ValidationFilter<AddQuoteToCollectionRequest>>();
+
+        group.MapDelete("/{id}/quotes/{quoteId}", async (int id, int quoteId, ICollectionRepository repo, CancellationToken ct) =>
+        {
+            var collection = await repo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+
+            if (!collection.RemoveItem(quoteId))
+            {
+                return Results.NotFound(new ProblemDetails { Title = "Not Found", Detail = $"Quote {quoteId} is not in the collection." });
+            }
+
+            await repo.UpdateAsync(collection, ct);
             return Results.NoContent();
         });
     }

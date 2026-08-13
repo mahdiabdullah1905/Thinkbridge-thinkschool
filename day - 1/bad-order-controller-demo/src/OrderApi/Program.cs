@@ -24,6 +24,10 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// Register Discount Strategies
+builder.Services.AddScoped<IDiscountStrategy, VipDiscountStrategy>();
+builder.Services.AddScoped<IDiscountStrategy, LoyalCustomerDiscountStrategy>();
+
 var app = builder.Build();
 
 app.MapControllers();
