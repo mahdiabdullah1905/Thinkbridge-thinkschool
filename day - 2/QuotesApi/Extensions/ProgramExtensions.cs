@@ -11,11 +11,14 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using System.Diagnostics;
 
 namespace QuotesApi.Extensions;
 
 public static class ProgramExtensions
 {
+    private static readonly ActivitySource ActivitySource = new("QuotesApi");
+
     public static void AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDbContext>(options =>
@@ -72,6 +75,8 @@ public static class ProgramExtensions
 
         group.MapPost("/", async (CreateQuoteRequest request, IQuoteRepository repo, ILogger<Program> logger, CancellationToken ct) =>
         {
+            using var activity = ActivitySource.StartActivity("CreateQuote");
+
             logger.LogInformation("Received request to create a quote for author {Author}", request.Author);
 
             var result = Quote.Create(request.Author, request.Text);

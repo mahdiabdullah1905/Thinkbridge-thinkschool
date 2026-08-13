@@ -8,8 +8,8 @@ public class TraceIdMiddleware : IMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
-        // Push the existing TraceIdentifier to the LogContext as "TraceId"
-        using (LogContext.PushProperty("TraceId", context.TraceIdentifier))
+        var traceId = System.Diagnostics.Activity.Current?.TraceId.ToHexString() ?? context.TraceIdentifier;
+        using (LogContext.PushProperty("TraceId", traceId))
         {
             await next(context);
         }
