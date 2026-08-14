@@ -5,7 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>829c84df-296e-49cb-87bb-905ca50feba3</UserSecretsId>
+    <ContainerImageName>quotes-api</ContainerImageName>
+    <ContainerImageTag>0.1.0</ContainerImageTag>
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:10.0-alpine</ContainerBaseImage>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Alpine's default non-root "app" user can't write to /app; /tmp is world-writable, so SQLite can create its file there. -->
+    <ContainerEnvironmentVariable Include="ConnectionStrings__DefaultConnection" Value="Data Source=/tmp/quotes.db" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />

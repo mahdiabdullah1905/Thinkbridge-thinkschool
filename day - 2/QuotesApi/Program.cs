@@ -75,6 +75,8 @@ app.MapAuthEndpoints();
 app.MapQuoteEndpoints();
 app.MapCollectionEndpoints();
 
+app.MapGet("/health", () => new { status = "healthy" });
+
 app.Run();
 
 public partial class Program { }
