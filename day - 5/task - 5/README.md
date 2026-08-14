@@ -62,6 +62,8 @@ Result (Logs tab, `appi-quotesapi`):
 |---|---|---|
 | 16 | 3.349 | 696.0992 |
 
+![KQL result: count_=16, p50=3.349, p99=696.0992](./kql-result.png)
+
 **Observation:** the very first request to each endpoint was a large outlier (`/health` 167.56ms, `/api/quotes` 696.10ms) versus sub-6ms for every subsequent call to the same endpoint. With only 16 samples on a freshly-scaled revision, that single cold-start request (JIT warmup + first SQLite connection/EF model build) dominates the p99 — it reflects container startup cost, not steady-state endpoint latency.
 
 ## Saved as a function
@@ -78,4 +80,4 @@ Verified via `saved-search show` that it persisted with the exact query text and
 
 ## Known issues (out of scope for this task)
 - The most recently built image (`quotes-api:azd-deploy-1786701961`, produced by Day 5 Task 4's `azd up`) crashes on startup due to a missing native SQLite library. The Container App currently runs the older `quotes-api:0.1.0` image as a workaround. This needs a proper fix (Dockerfile/publish settings) in a follow-up task — not addressed here since it requires build-config changes outside this task's scope.
-- Portal screenshots of the Logs tab result and the Functions list were not captured into this repository — the working environment has no browser/screen-capture tool available. The result was independently confirmed against the Azure Portal (Logs tab) and matched the CLI output above exactly (`count_=16, p50=3.349, p99=696.0992`).
+- The Functions list screenshot was not captured into this repository — only the Logs tab result (above) was. The result shown there was independently confirmed against the Azure Portal and matches the CLI output exactly (`count_=16, p50=3.349, p99=696.0992`).
