@@ -40,6 +40,10 @@ builder.Services.AddTransient<TraceIdMiddleware>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Registered for future outbound calls (e.g. a third-party quotes source, Entra ID); no endpoint
+// consumes it yet. See Extensions/ResilienceExtensions.cs.
+builder.Services.AddResilientExternalServiceClient();
+
 var openTelemetryBuilder = builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>
     {
