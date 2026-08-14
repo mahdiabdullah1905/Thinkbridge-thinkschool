@@ -19,6 +19,9 @@
       },
       "jwtKey": {
         "value": "${JWT_KEY}"
+      },
+      "appInsightsConnectionString": {
+        "value": "${APPINSIGHTS_CONNECTION_STRING}"
       }
     }
 }

@@ -17,6 +17,10 @@ param principalType string
 @description('JWT signing key for the QuotesApi service')
 param jwtKey string
 
+@secure()
+@description('Application Insights connection string for the QuotesApi service (Day 5 Task 5)')
+param appInsightsConnectionString string
+
 // Existing Container Registry (Day 5 Task 3 - thinkschool-rg)
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' existing = {
   name: 'thinkschoolacr'
@@ -49,6 +53,10 @@ module quotesApi 'br/public:avm/res/app/container-app:0.8.0' = {
           name: 'jwt-key'
           value: jwtKey
         }
+        {
+          name: 'appinsights-connection-string'
+          value: appInsightsConnectionString
+        }
       ]
     }
     containers: [
@@ -67,6 +75,10 @@ module quotesApi 'br/public:avm/res/app/container-app:0.8.0' = {
           {
             name: 'Jwt__Key'
             secretRef: 'jwt-key'
+          }
+          {
+            name: 'AppInsights__ConnectionString'
+            secretRef: 'appinsights-connection-string'
           }
         ]
       }

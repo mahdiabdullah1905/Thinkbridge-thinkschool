@@ -22,6 +22,10 @@ param principalType string
 @description('JWT signing key for the QuotesApi service')
 param jwtKey string
 
+@secure()
+@description('Application Insights connection string for the QuotesApi service (Day 5 Task 5)')
+param appInsightsConnectionString string
+
 // Tags that should be applied to all resources.
 //
 // Note that 'azd-service-name' tags should be applied separately to service host resources.
@@ -40,6 +44,7 @@ module resources 'resources.bicep' = {
     principalType: principalType
     quotesApiExists: quotesApiExists
     jwtKey: jwtKey
+    appInsightsConnectionString: appInsightsConnectionString
   }
 }
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = resources.outputs.AZURE_CONTAINER_REGISTRY_ENDPOINT
