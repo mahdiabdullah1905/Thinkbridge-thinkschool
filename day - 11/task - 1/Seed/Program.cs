@@ -47,6 +47,7 @@ using (var setup = NewContext())
 }
 
 ShowMissingIndexPlan();
+ShowFixedQueryPlans();
 
 void ShowMissingIndexPlan()
 {
@@ -59,10 +60,63 @@ void ShowMissingIndexPlan()
         $"EXPLAIN QUERY PLAN SELECT \"Id\", \"Author\", \"Text\", \"IsDeleted\" " +
         $"FROM \"Quotes\" WHERE \"Author\" = '{SampleAuthor}' AND \"IsDeleted\" = 0;";
 
+    // Task 1 originally captured this against a database with no IX_Quotes_Author, where it
+    // printed "SCAN Quotes" (see task - 1/README.md section 2). The AddQuotesAuthorIndex
+    // migration (added in Task 2) now runs as part of Database.Migrate() above, so this same
+    // query shape on this same file prints the fixed plan from here on.
     Console.WriteLine();
-    Console.WriteLine("=== EXPLAIN QUERY PLAN: the per-author query /api/authors runs once per author ===");
+    Console.WriteLine("=== EXPLAIN QUERY PLAN: the old per-author lookup query, WHERE Author = ? ===");
     Console.WriteLine(cmd.CommandText);
     Console.WriteLine();
+
+    using var reader = cmd.ExecuteReader();
+    while (reader.Read())
+    {
+        var parts = new List<string>();
+        for (var i = 0; i < reader.FieldCount; i++)
+        {
+            parts.Add($"{reader.GetName(i)}={reader.GetValue(i)}");
+        }
+
+        Console.WriteLine(string.Join("  ", parts));
+    }
+}
+
+void ShowFixedQueryPlans()
+{
+    using var ctx = NewContext();
+    var connection = ctx.Database.GetDbConnection();
+    connection.Open();
+
+    // Task 2 fix: the actual SQL EF Core generates for the fixed /api/authors endpoint
+    // (Quotes.GroupBy(q => q.Author).Select(g => new AuthorSummary(...))), captured verbatim
+    // from the Development EF Core command log.
+    Console.WriteLine();
+    Console.WriteLine("=== AFTER N+1 fix: the single grouped query the fixed /api/authors issues ===");
+    PrintPlan(connection, """
+        SELECT "q1"."Author", "q1"."c", "q2"."Text", "q2"."Id"
+        FROM (
+            SELECT "q"."Author", COUNT(*) AS "c"
+            FROM "Quotes" AS "q"
+            WHERE NOT ("q"."IsDeleted")
+            GROUP BY "q"."Author"
+        ) AS "q1"
+        LEFT JOIN (
+            SELECT "q0"."Text", "q0"."Id", "q0"."Author"
+            FROM "Quotes" AS "q0"
+            WHERE NOT ("q0"."IsDeleted")
+        ) AS "q2" ON "q1"."Author" = "q2"."Author"
+        ORDER BY "q1"."Author";
+        """);
+}
+
+void PrintPlan(System.Data.Common.DbConnection connection, string sql)
+{
+    Console.WriteLine(sql);
+    Console.WriteLine();
+
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = "EXPLAIN QUERY PLAN " + sql;
 
     using var reader = cmd.ExecuteReader();
     while (reader.Read())

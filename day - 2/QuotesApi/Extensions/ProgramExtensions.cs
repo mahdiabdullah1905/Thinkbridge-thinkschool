@@ -132,27 +132,12 @@ public static class ProgramExtensions
     {
         var group = app.MapGroup("/api/authors");
 
-        // Author directory: every author together with their quotes. Written the quick way -
-        // one query for the distinct author names, then one more query per author - instead of
-        // a single grouped query, so it does N+1 round trips against a Quotes.Author column that
-        // has no index to back the per-author WHERE clause.
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
-            var authors = await db.Quotes
-                .Select(q => q.Author)
-                .Distinct()
+            var summaries = await db.Quotes
+                .GroupBy(q => q.Author)
+                .Select(g => new AuthorSummary(g.Key, g.Count(), g.Select(q => q.Text).ToList()))
                 .ToListAsync(ct);
-
-            var summaries = new List<AuthorSummary>();
-
-            foreach (var author in authors)
-            {
-                var quotesForAuthor = await db.Quotes
-                    .Where(q => q.Author == author)
-                    .ToListAsync(ct);
-
-                summaries.Add(new AuthorSummary(author, quotesForAuthor.Count, quotesForAuthor.Select(q => q.Text).ToList()));
-            }
 
             return Results.Ok(summaries);
         });

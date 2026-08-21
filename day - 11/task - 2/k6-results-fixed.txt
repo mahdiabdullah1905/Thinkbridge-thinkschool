@@ -1,0 +1,171 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: load-test.js
+        output: -
+
+     scenarios: (100.00%) 2 scenarios, 20 max VUs, 1m0s max duration (incl. graceful stop):
+              * authors_fixed: 10 looping VUs for 30s (exec: authorsFixed, gracefulStop: 30s)
+              * quotes_baseline: 10 looping VUs for 30s (exec: quotesBaseline, gracefulStop: 30s)
+
+
+running (0m01.0s), 20/20 VUs, 735 complete and 0 interrupted iterations
+authors_fixed     [   3% ] 10 VUs  01.0s/30s
+quotes_baseline   [   3% ] 10 VUs  01.0s/30s
+
+running (0m02.0s), 20/20 VUs, 1920 complete and 0 interrupted iterations
+authors_fixed     [   7% ] 10 VUs  02.0s/30s
+quotes_baseline   [   7% ] 10 VUs  02.0s/30s
+
+running (0m03.0s), 20/20 VUs, 3162 complete and 0 interrupted iterations
+authors_fixed     [  10% ] 10 VUs  03.0s/30s
+quotes_baseline   [  10% ] 10 VUs  03.0s/30s
+
+running (0m04.0s), 20/20 VUs, 4208 complete and 0 interrupted iterations
+authors_fixed     [  13% ] 10 VUs  04.0s/30s
+quotes_baseline   [  13% ] 10 VUs  04.0s/30s
+
+running (0m05.0s), 20/20 VUs, 5345 complete and 0 interrupted iterations
+authors_fixed     [  17% ] 10 VUs  05.0s/30s
+quotes_baseline   [  17% ] 10 VUs  05.0s/30s
+
+running (0m06.0s), 20/20 VUs, 6464 complete and 0 interrupted iterations
+authors_fixed     [  20% ] 10 VUs  06.0s/30s
+quotes_baseline   [  20% ] 10 VUs  06.0s/30s
+
+running (0m07.0s), 20/20 VUs, 7562 complete and 0 interrupted iterations
+authors_fixed     [  23% ] 10 VUs  07.0s/30s
+quotes_baseline   [  23% ] 10 VUs  07.0s/30s
+
+running (0m08.0s), 20/20 VUs, 8619 complete and 0 interrupted iterations
+authors_fixed     [  27% ] 10 VUs  08.0s/30s
+quotes_baseline   [  27% ] 10 VUs  08.0s/30s
+
+running (0m09.0s), 20/20 VUs, 9551 complete and 0 interrupted iterations
+authors_fixed     [  30% ] 10 VUs  09.0s/30s
+quotes_baseline   [  30% ] 10 VUs  09.0s/30s
+
+running (0m10.0s), 20/20 VUs, 10592 complete and 0 interrupted iterations
+authors_fixed     [  33% ] 10 VUs  10.0s/30s
+quotes_baseline   [  33% ] 10 VUs  10.0s/30s
+
+running (0m11.0s), 20/20 VUs, 11607 complete and 0 interrupted iterations
+authors_fixed     [  37% ] 10 VUs  11.0s/30s
+quotes_baseline   [  37% ] 10 VUs  11.0s/30s
+
+running (0m12.0s), 20/20 VUs, 12664 complete and 0 interrupted iterations
+authors_fixed     [  40% ] 10 VUs  12.0s/30s
+quotes_baseline   [  40% ] 10 VUs  12.0s/30s
+
+running (0m13.0s), 20/20 VUs, 13742 complete and 0 interrupted iterations
+authors_fixed     [  43% ] 10 VUs  13.0s/30s
+quotes_baseline   [  43% ] 10 VUs  13.0s/30s
+
+running (0m14.0s), 20/20 VUs, 14742 complete and 0 interrupted iterations
+authors_fixed     [  47% ] 10 VUs  14.0s/30s
+quotes_baseline   [  47% ] 10 VUs  14.0s/30s
+
+running (0m15.0s), 20/20 VUs, 15730 complete and 0 interrupted iterations
+authors_fixed     [  50% ] 10 VUs  15.0s/30s
+quotes_baseline   [  50% ] 10 VUs  15.0s/30s
+
+running (0m16.0s), 20/20 VUs, 16865 complete and 0 interrupted iterations
+authors_fixed     [  53% ] 10 VUs  16.0s/30s
+quotes_baseline   [  53% ] 10 VUs  16.0s/30s
+
+running (0m17.0s), 20/20 VUs, 18033 complete and 0 interrupted iterations
+authors_fixed     [  57% ] 10 VUs  17.0s/30s
+quotes_baseline   [  57% ] 10 VUs  17.0s/30s
+
+running (0m18.0s), 20/20 VUs, 19188 complete and 0 interrupted iterations
+authors_fixed     [  60% ] 10 VUs  18.0s/30s
+quotes_baseline   [  60% ] 10 VUs  18.0s/30s
+
+running (0m19.0s), 20/20 VUs, 20392 complete and 0 interrupted iterations
+authors_fixed     [  63% ] 10 VUs  19.0s/30s
+quotes_baseline   [  63% ] 10 VUs  19.0s/30s
+
+running (0m20.0s), 20/20 VUs, 21432 complete and 0 interrupted iterations
+authors_fixed     [  67% ] 10 VUs  20.0s/30s
+quotes_baseline   [  67% ] 10 VUs  20.0s/30s
+
+running (0m21.0s), 20/20 VUs, 22479 complete and 0 interrupted iterations
+authors_fixed     [  70% ] 10 VUs  21.0s/30s
+quotes_baseline   [  70% ] 10 VUs  21.0s/30s
+
+running (0m22.0s), 20/20 VUs, 23728 complete and 0 interrupted iterations
+authors_fixed     [  73% ] 10 VUs  22.0s/30s
+quotes_baseline   [  73% ] 10 VUs  22.0s/30s
+
+running (0m23.0s), 20/20 VUs, 25007 complete and 0 interrupted iterations
+authors_fixed     [  77% ] 10 VUs  23.0s/30s
+quotes_baseline   [  77% ] 10 VUs  23.0s/30s
+
+running (0m24.0s), 20/20 VUs, 26171 complete and 0 interrupted iterations
+authors_fixed     [  80% ] 10 VUs  24.0s/30s
+quotes_baseline   [  80% ] 10 VUs  24.0s/30s
+
+running (0m25.0s), 20/20 VUs, 27365 complete and 0 interrupted iterations
+authors_fixed     [  83% ] 10 VUs  25.0s/30s
+quotes_baseline   [  83% ] 10 VUs  25.0s/30s
+
+running (0m26.0s), 20/20 VUs, 28477 complete and 0 interrupted iterations
+authors_fixed     [  87% ] 10 VUs  26.0s/30s
+quotes_baseline   [  87% ] 10 VUs  26.0s/30s
+
+running (0m27.0s), 20/20 VUs, 29695 complete and 0 interrupted iterations
+authors_fixed     [  90% ] 10 VUs  27.0s/30s
+quotes_baseline   [  90% ] 10 VUs  27.0s/30s
+
+running (0m28.0s), 20/20 VUs, 30859 complete and 0 interrupted iterations
+authors_fixed     [  93% ] 10 VUs  28.0s/30s
+quotes_baseline   [  93% ] 10 VUs  28.0s/30s
+
+running (0m29.0s), 20/20 VUs, 32197 complete and 0 interrupted iterations
+authors_fixed     [  97% ] 10 VUs  29.0s/30s
+quotes_baseline   [  97% ] 10 VUs  29.0s/30s
+
+running (0m30.0s), 20/20 VUs, 33459 complete and 0 interrupted iterations
+authors_fixed     [ 100% ] 10 VUs  30s
+quotes_baseline ↓ [ 100% ] 10 VUs  30s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 33479   1113.372838/s
+    checks_succeeded...: 100.00% 33479 out of 33479
+    checks_failed......: 0.00%   0 out of 33479
+
+    ✓ quotes: status is 200
+    ✓ authors: status is 200
+
+    HTTP
+    http_req_duration................: avg=17.58ms  min=2.53ms  med=8.34ms   p(90)=22.53ms  p(95)=103.21ms p(99)=128.74ms max=389.01ms
+      { expected_response:true }.....: avg=17.58ms  min=2.53ms  med=8.34ms   p(90)=22.53ms  p(95)=103.21ms p(99)=128.74ms max=389.01ms
+      { scenario:authors_fixed }.....: avg=110.28ms min=67.19ms med=107.11ms p(90)=131.24ms p(95)=141.87ms p(99)=182.21ms max=389.01ms
+      { scenario:quotes_baseline }...: avg=9.41ms   min=2.53ms  med=8.01ms   p(90)=15.32ms  p(95)=18.5ms   p(99)=26.43ms  max=217.91ms
+    http_req_failed..................: 0.00%  0 out of 33479
+    http_reqs........................: 33479  1113.372838/s
+
+    EXECUTION
+    iteration_duration...............: avg=17.9ms   min=2.78ms  med=8.57ms   p(90)=23.13ms  p(95)=103.73ms p(99)=129.65ms max=399.83ms
+    iterations.......................: 33479  1113.372838/s
+    vus..............................: 20     min=20         max=20
+    vus_max..........................: 20     min=20         max=20
+
+    NETWORK
+    data_received....................: 841 MB 28 MB/s
+    data_sent........................: 3.1 MB 105 kB/s
+
+
+
+
+running (0m30.1s), 00/20 VUs, 33479 complete and 0 interrupted iterations
+authors_fixed   ✓ [ 100% ] 10 VUs  30s
+quotes_baseline ✓ [ 100% ] 10 VUs  30s

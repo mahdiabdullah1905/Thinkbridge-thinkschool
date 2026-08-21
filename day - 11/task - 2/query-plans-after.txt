@@ -1,0 +1,32 @@
+Captured from `day - 11/task - 1/Seed/Program.cs` (extended in Task 2 with
+ShowFixedQueryPlans/PrintPlan) after the AddQuotesAuthorIndex migration has
+run against day11-loadtest.db:
+
+=== EXPLAIN QUERY PLAN: the old per-author lookup query, WHERE Author = ? ===
+EXPLAIN QUERY PLAN SELECT "Id", "Author", "Text", "IsDeleted" FROM "Quotes" WHERE "Author" = 'Author 250' AND "IsDeleted" = 0;
+
+id=3  parent=0  notused=62  detail=SEARCH Quotes USING INDEX IX_Quotes_Author (Author=?)
+
+Before (day - 11/task - 1/README.md section 2, no index):
+id=2  parent=0  notused=216  detail=SCAN Quotes
+
+=== AFTER N+1 fix: the single grouped query the fixed /api/authors issues ===
+SELECT "q1"."Author", "q1"."c", "q2"."Text", "q2"."Id"
+FROM (
+    SELECT "q"."Author", COUNT(*) AS "c"
+    FROM "Quotes" AS "q"
+    WHERE NOT ("q"."IsDeleted")
+    GROUP BY "q"."Author"
+) AS "q1"
+LEFT JOIN (
+    SELECT "q0"."Text", "q0"."Id", "q0"."Author"
+    FROM "Quotes" AS "q0"
+    WHERE NOT ("q0"."IsDeleted")
+) AS "q2" ON "q1"."Author" = "q2"."Author"
+ORDER BY "q1"."Author";
+
+id=2  parent=0  notused=0  detail=CO-ROUTINE q1
+id=9  parent=2  notused=225  detail=SCAN q USING INDEX IX_Quotes_Author
+id=43  parent=0  notused=82  detail=SCAN q1
+id=46  parent=0  notused=62  detail=SEARCH q0 USING INDEX IX_Quotes_Author (Author=?) LEFT-JOIN
+id=68  parent=0  notused=0  detail=USE TEMP B-TREE FOR ORDER BY

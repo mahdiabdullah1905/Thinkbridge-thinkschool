@@ -1,0 +1,97 @@
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] Creating DbCommand for 'ExecuteReader'.
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] Created DbCommand for 'ExecuteReader' (1ms).
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] Initialized DbCommand for 'ExecuteReader' (6ms).
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] Executing DbCommand [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "q1"."Author", "q1"."c", "q2"."Text", "q2"."Id"
+FROM (
+    SELECT "q"."Author", COUNT(*) AS "c"
+    FROM "Quotes" AS "q"
+    WHERE NOT ("q"."IsDeleted")
+    GROUP BY "q"."Author"
+) AS "q1"
+LEFT JOIN (
+    SELECT "q0"."Text", "q0"."Id", "q0"."Author"
+    FROM "Quotes" AS "q0"
+    WHERE NOT ("q0"."IsDeleted")
+) AS "q2" ON "q1"."Author" = "q2"."Author"
+ORDER BY "q1"."Author"
+[10:16:25 INF] [d06a80b2423d556e721dde0d749e14fa] Executed DbCommand (15ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "q1"."Author", "q1"."c", "q2"."Text", "q2"."Id"
+FROM (
+    SELECT "q"."Author", COUNT(*) AS "c"
+    FROM "Quotes" AS "q"
+    WHERE NOT ("q"."IsDeleted")
+    GROUP BY "q"."Author"
+) AS "q1"
+LEFT JOIN (
+    SELECT "q0"."Text", "q0"."Id", "q0"."Author"
+    FROM "Quotes" AS "q0"
+    WHERE NOT ("q0"."IsDeleted")
+) AS "q2" ON "q1"."Author" = "q2"."Author"
+ORDER BY "q1"."Author"
+Activity.TraceId:            d06a80b2423d556e721dde0d749e14fa
+Activity.SpanId:             659cb456cdc63ad1
+Activity.TraceFlags:         Recorded
+Activity.ParentSpanId:       141b73a6330748fe
+Activity.DisplayName:        main
+Activity.Kind:               Client
+Activity.StartTime:          2026-08-21T04:46:25.1543513Z
+Activity.Duration:           00:00:00.0206472
+Activity.Tags:
+    microsoft.sample_rate: 100
+    db.system: sqlite
+    peer.service: projects
+    db.name: main
+    db.statement: SELECT "q1"."Author", "q1"."c", "q2"."Text", "q2"."Id"
+FROM (
+    SELECT "q"."Author", COUNT(*) AS "c"
+    FROM "Quotes" AS "q"
+    WHERE NOT ("q"."IsDeleted")
+    GROUP BY "q"."Author"
+) AS "q1"
+LEFT JOIN (
+    SELECT "q0"."Text", "q0"."Id", "q0"."Author"
+    FROM "Quotes" AS "q0"
+    WHERE NOT ("q0"."IsDeleted")
+) AS "q2" ON "q1"."Author" = "q2"."Author"
+ORDER BY "q1"."Author"
+Instrumentation scope (ActivitySource):
+    Name: OpenTelemetry.Instrumentation.EntityFrameworkCore
+    Version: 1.17.0-beta.1
+    Schema URL: https://opentelemetry.io/schemas/1.24.0
+Resource associated with Activity:
+    telemetry.distro.name: Azure.Monitor.OpenTelemetry.AspNetCore
+    telemetry.sdk.name: opentelemetry
+    telemetry.sdk.language: dotnet
+    telemetry.sdk.version: 1.17.0
+    service.name: unknown_service:QuotesApi
+
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] Closing data reader to 'main' on server 'D:\projects\Thinkbridge-thinkschool\day - 11\task - 1\Seed\day11-loadtest.db'.
+[10:16:25 DBG] [d06a80b2423d556e721dde0d749e14fa] A data reader for 'main' on server 'D:\projects\Thinkbridge-thinkschool\day - 11\task - 1\Seed\day11-loadtest.db' is being disposed after spending 27ms reading results.
+Activity.TraceId:            d06a80b2423d556e721dde0d749e14fa
+Activity.SpanId:             141b73a6330748fe
+Activity.TraceFlags:         Recorded
+Activity.DisplayName:        GET /api/authors/
+Activity.Kind:               Server
+Activity.StartTime:          2026-08-21T04:46:24.9135823Z
+Activity.Duration:           00:00:00.3095992
+Activity.Tags:
+    microsoft.sample_rate: 100
+    http.request.method: GET
+    server.address: localhost
+    server.port: 5299
+    user_agent.original: curl/8.12.1
+    url.scheme: http
+    url.path: /api/authors
+    network.protocol.version: 1.1
+    http.route: /api/authors/
+    http.response.status_code: 200
+Instrumentation scope (ActivitySource):
+    Name: Microsoft.AspNetCore
+Resource associated with Activity:
+    telemetry.distro.name: Azure.Monitor.OpenTelemetry.AspNetCore
+    telemetry.sdk.name: opentelemetry
+    telemetry.sdk.language: dotnet
+    telemetry.sdk.version: 1.17.0
+    service.name: unknown_service:QuotesApi
+

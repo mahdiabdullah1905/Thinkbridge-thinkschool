@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Quote>().HasQueryFilter(q => !q.IsDeleted);
+        modelBuilder.Entity<Quote>().HasIndex(q => q.Author);
 
         modelBuilder.Entity<Collection>(b =>
         {
