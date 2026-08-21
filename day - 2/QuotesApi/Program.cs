@@ -78,6 +78,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapQuoteEndpoints();
 app.MapCollectionEndpoints();
+app.MapAuthorEndpoints();
 
 app.MapGet("/health", () => new { status = "healthy" });
 
