@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using MediatR;
 using QuotesApi.Data;
 using QuotesApi.Repositories;
+using QuotesApi.Commands;
+using QuotesApi.Queries;
 using QuotesApi.Models;
 using QuotesApi.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -56,7 +59,9 @@ public static class ProgramExtensions
 
         services.AddScoped<IQuoteRepository, QuoteRepository>();
         services.AddScoped<ICollectionRepository, CollectionRepository>();
-        
+
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
+
         services.AddSingleton<IClock, SystemClock>();
         services.AddTransient<ExceptionHandlingMiddleware>();
         
@@ -67,43 +72,30 @@ public static class ProgramExtensions
     {
         var group = app.MapGroup("/api/quotes");
 
-        group.MapGet("/", async (IQuoteRepository repo, int? page, int? size, CancellationToken ct) =>
+        // Read path: query-shaped, denormalized QuoteListItem (see QuoteListItem/GetQuoteListQueryHandler).
+        group.MapGet("/", async (ISender sender, int? page, int? size, CancellationToken ct) =>
         {
             var p = page.HasValue && page.Value >= 1 ? page.Value : 1;
             var s = size.HasValue && size.Value >= 1 && size.Value <= 100 ? size.Value : 10;
 
-            var (quotes, totalCount) = await repo.GetQuotesAsync(p, s, ct);
-
-            return Results.Ok(new PaginatedResponse<Quote>
-            {
-                Page = p,
-                Size = s,
-                TotalCount = totalCount,
-                Items = quotes
-            });
+            var response = await sender.Send(new GetQuoteListQuery(p, s), ct);
+            return Results.Ok(response);
         });
 
-        group.MapPost("/", async (CreateQuoteRequest request, IQuoteRepository repo, ILogger<Program> logger, CancellationToken ct) =>
+        // Write path: normalized Quote entity, validated in CreateQuoteCommandHandler.
+        group.MapPost("/", async (CreateQuoteRequest request, ISender sender, ILogger<Program> logger, CancellationToken ct) =>
         {
             using var activity = ActivitySource.StartActivity("CreateQuote");
 
             logger.LogInformation("Received request to create a quote for author {Author}", request.Author);
 
-            var result = Quote.Create(request.Author, request.Text);
+            var result = await sender.Send(new CreateQuoteCommand(request.Author, request.Text), ct);
             if (!result.IsSuccess)
             {
-                logger.LogWarning("Quote validation failed for author {Author}: {Error}", request.Author, result.Error);
                 return Results.BadRequest(new ProblemDetails { Title = "Invalid Quote", Detail = result.Error });
             }
 
             var quote = result.Value!;
-            logger.LogInformation("Successfully instantiated quote with ID {QuoteId}", quote.Id);
-
-            logger.LogInformation("Saving quote {QuoteId} to the database", quote.Id);
-            await repo.AddQuoteAsync(quote, ct);
-
-            logger.LogInformation("Successfully saved quote {QuoteId}", quote.Id);
-
             logger.LogInformation("Returning Created response for quote {QuoteId}", quote.Id);
             return Results.Created($"/api/quotes/{quote.Id}", quote);
         })
