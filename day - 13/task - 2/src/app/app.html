@@ -1,0 +1,87 @@
+<main class="page">
+  <h1>Quotes</h1>
+  <p class="subtitle">
+    Live data from the Week 1 API - <code>GET /api/quotes</code> and
+    <code>GET /api/quotes/:id</code>
+  </p>
+
+  <div class="layout">
+    <section class="list-panel">
+      <form class="jump" (submit)="$event.preventDefault()">
+        <label for="pageInput">Go to page</label>
+        <input
+          id="pageInput"
+          type="number"
+          min="1"
+          [value]="page()"
+          (change)="jumpToPage($any($event.target).value)"
+        />
+      </form>
+
+      @switch (listStatus()) {
+        @case ('loading') {
+          <p class="state">Loading quotes...</p>
+        }
+        @case ('error') {
+          <p class="state error">{{ listError() }}</p>
+        }
+        @case ('empty') {
+          <p class="state">No quotes on page {{ page() }}.</p>
+        }
+        @default {
+          <ul class="quote-list">
+            @for (quote of quotes(); track quote.id) {
+              <li>
+                <button
+                  type="button"
+                  class="quote-button"
+                  [class.selected]="selectedId() === quote.id"
+                  (click)="selectQuote(quote.id)"
+                >
+                  <p class="text">"{{ quote.textPreview }}"</p>
+                  <p class="author">— {{ quote.author }} ({{ quote.authorQuoteCount }} quotes)</p>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      }
+
+      @if (listStatus() !== 'loading') {
+        <div class="pager">
+          <button type="button" (click)="goToPage(page() - 1)" [disabled]="!canGoPrevious()">
+            Previous
+          </button>
+          <span>Page {{ page() }} of {{ totalPages() }}</span>
+          <button type="button" (click)="goToPage(page() + 1)" [disabled]="!canGoNext()">
+            Next
+          </button>
+        </div>
+      }
+    </section>
+
+    <section class="detail-panel">
+      <h2>Detail</h2>
+      @switch (detailStatus()) {
+        @case ('idle') {
+          <p class="state">Select a quote to see its details.</p>
+        }
+        @case ('loading') {
+          <p class="state">Loading quote...</p>
+        }
+        @case ('error') {
+          <p class="state error">{{ detailError() }}</p>
+        }
+        @case ('success') {
+          @if (detail(); as quote) {
+            <p class="text">"{{ quote.text }}"</p>
+            <p class="author">— {{ quote.author }}</p>
+            @if (quote.isDeleted) {
+              <p class="deleted-flag">This quote has been deleted.</p>
+            }
+          }
+        }
+      }
+    </section>
+  </div>
+</main>
