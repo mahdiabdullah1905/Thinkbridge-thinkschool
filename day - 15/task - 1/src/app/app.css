@@ -1,0 +1,57 @@
+.page {
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.subtitle {
+  color: #55506a;
+}
+
+.list-panel,
+.login-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 1px 3px rgba(32, 28, 44, 0.08);
+}
+
+.quote-list {
+  list-style: none;
+  padding: 0;
+}
+
+.quote-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.state.error {
+  color: #9b1c3f;
+}
+
+.state.success {
+  color: #1c7a4d;
+}
+
+.field-errors {
+  color: #9b1c3f;
+  font-size: 0.9rem;
+}
+
+form label {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+form input {
+  width: 100%;
+  padding: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+form button {
+  margin-top: 1rem;
+}
