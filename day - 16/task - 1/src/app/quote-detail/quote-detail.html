@@ -1,0 +1,24 @@
+<main class="page">
+  <a class="back" routerLink="/quotes">&larr; Back to quotes</a>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="state">Loading quote...</p>
+    }
+    @case ('notfound') {
+      <p class="state error">Quote {{ id() }} does not exist.</p>
+    }
+    @case ('error') {
+      <p class="state error">{{ error()?.message }}</p>
+    }
+    @case ('success') {
+      @if (quote(); as q) {
+        <blockquote class="text">"{{ q.text }}"</blockquote>
+        <p class="author">— {{ q.author }}</p>
+        @if (q.isDeleted) {
+          <p class="deleted-flag">This quote has been deleted.</p>
+        }
+      }
+    }
+  }
+</main>

@@ -1,0 +1,14 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #ddd;
+  font-family: system-ui, sans-serif;
+}
+
+.brand {
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
