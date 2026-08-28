@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { AppError } from '../errors/app-error';
-import { QuoteDetail, QuoteListItem, QuotesApi } from '../quotes-api';
+import { Observable, tap } from 'rxjs';
+import { AppError } from '../../core/errors/app-error';
+import { CreateQuoteRequest, QuoteDetail, QuoteListItem, QuotesApi } from '../../core/quotes-api';
 
 export type ListStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 export type DetailStatus = 'idle' | 'loading' | 'loaded' | 'notfound' | 'error';
@@ -102,5 +103,15 @@ export class QuotesStore {
     this._detail.set(null);
     this._detailStatus.set('idle');
     this._detailError.set(null);
+  }
+
+  // Creating a quote is a one-shot form submission - the caller (the
+  // create-quote form) owns the resulting UX (validation feedback, focus,
+  // navigation), so this returns the Observable rather than adding a third
+  // status signal here that only one component would ever read. What the
+  // store DOES own is the side effect only it can perform: refreshing the
+  // current page so a newly created quote actually shows up in the list.
+  createQuote(request: CreateQuoteRequest): Observable<QuoteDetail> {
+    return this.quotesApi.createQuote(request).pipe(tap(() => this.loadPage(this._page())));
   }
 }

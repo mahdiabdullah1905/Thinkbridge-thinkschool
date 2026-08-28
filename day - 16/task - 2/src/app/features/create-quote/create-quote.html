@@ -1,0 +1,62 @@
+<section class="page">
+  <a class="back" routerLink="/quotes">&larr; Back to quotes</a>
+
+  <h1>Add a quote</h1>
+  <p class="subtitle">Submits to <code>POST /api/quotes</code> on the Week-1 API.</p>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="field">
+      <label for="author">Author</label>
+      <input
+        id="author"
+        name="author"
+        type="text"
+        formControlName="author"
+        #authorInput
+        [maxlength]="authorMaxLength"
+        [attr.aria-invalid]="authorErrorMessage() ? 'true' : 'false'"
+        [attr.aria-describedby]="authorErrorMessage() ? 'author-error' : null"
+      />
+      @if (authorErrorMessage(); as message) {
+        <p id="author-error" class="field-error" role="alert">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="text">Quote text</label>
+      <textarea
+        id="text"
+        name="text"
+        rows="4"
+        formControlName="text"
+        #textInput
+        [maxlength]="textMaxLength"
+        [attr.aria-invalid]="textErrorMessage() ? 'true' : 'false'"
+        [attr.aria-describedby]="textErrorMessage() ? 'text-error' : null"
+      ></textarea>
+      @if (textErrorMessage(); as message) {
+        <p id="text-error" class="field-error" role="alert">{{ message }}</p>
+      }
+    </div>
+
+    @if (serverMessage(); as message) {
+      <p class="server-message" role="alert">{{ message }}</p>
+    }
+
+    @if (status() === 'success' && createdQuote(); as quote) {
+      <p class="success-message" role="status">
+        Quote #{{ quote.id }} by {{ quote.author }} was added.
+        <a [routerLink]="['/quotes', quote.id]">View it</a>.
+      </p>
+    }
+
+    <button
+      type="submit"
+      [attr.aria-busy]="status() === 'submitting' ? 'true' : null"
+      [attr.aria-disabled]="status() === 'submitting' ? 'true' : null"
+      [class.is-busy]="status() === 'submitting'"
+    >
+      {{ status() === 'submitting' ? 'Adding…' : 'Add quote' }}
+    </button>
+  </form>
+</section>

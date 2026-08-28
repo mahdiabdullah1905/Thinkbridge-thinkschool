@@ -2,8 +2,8 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { errorMappingInterceptor } from '../interceptors/error-mapping-interceptor';
-import { PaginatedResponse, QuoteDetail, QuoteListItem } from '../quotes-api';
+import { errorMappingInterceptor } from '../../core/interceptors/error-mapping-interceptor';
+import { PaginatedResponse, QuoteDetail, QuoteListItem } from '../../core/quotes-api';
 import { QuotesStore } from './quotes-store';
 
 // Only errorMappingInterceptor is wired in for these tests: the store's
@@ -174,5 +174,49 @@ describe('QuotesStore', () => {
     expect(store.selectedId()).toBeNull();
     expect(store.detail()).toBeNull();
     expect(store.detailStatus()).toBe('idle');
+  });
+
+  it('createQuote posts the request and emits the created quote', () => {
+    const store = TestBed.inject(QuotesStore);
+    expectQuotesRequest(httpMock, 1, 5).flush(listResponse());
+
+    let emitted: QuoteDetail | undefined;
+    store.createQuote({ author: 'Ada Lovelace', text: 'The Analytical Engine weaves algebra.' }).subscribe((q) => {
+      emitted = q;
+    });
+
+    const req = httpMock.expectOne('/api/quotes');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ author: 'Ada Lovelace', text: 'The Analytical Engine weaves algebra.' });
+
+    const created = detailResponse({ id: 7, author: 'Ada Lovelace', text: 'The Analytical Engine weaves algebra.' });
+    req.flush(created, { status: 201, statusText: 'Created' });
+
+    expect(emitted).toEqual(created);
+    // The store's own side effect: refresh the current page so the new
+    // quote is reflected without the caller having to know to ask for it.
+    expectQuotesRequest(httpMock, 1, 5).flush(listResponse());
+  });
+
+  it('createQuote propagates a mapped AppError and does not refresh the list on failure', () => {
+    const store = TestBed.inject(QuotesStore);
+    expectQuotesRequest(httpMock, 1, 5).flush(listResponse());
+
+    let caught: unknown;
+    store.createQuote({ author: '', text: 'Valid text' }).subscribe({
+      error: (err) => {
+        caught = err;
+      },
+    });
+
+    httpMock
+      .expectOne('/api/quotes')
+      .flush(
+        { title: 'One or more validation errors occurred.', errors: { Author: ['The Author field is required.'] } },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    expect((caught as { kind: string })?.kind).toBe('validation');
+    httpMock.expectNone((req) => req.url === '/api/quotes' && req.method === 'GET');
   });
 });

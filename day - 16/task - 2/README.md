@@ -1,11 +1,18 @@
 # Day 16, Task 2 — State management, signals first
 
-A small quotes feature (list + selected detail) whose state lives entirely in
+A quotes feature — list, detail, and create — whose data lives in
 `QuotesStore`: plain Angular signals inside an injectable service, no NgRx,
-no `@ngrx/signals`. HTTP stays in `QuotesApi`, unchanged from Day 16 Task 1.
-Built against the real Week-1 API (`day - 2/QuotesApi`, `dotnet run`,
+no `@ngrx/signals`. Routes mirror the backend's own resource grouping, and
+"add a quote" is gated behind sign-in because the backend genuinely requires
+it. Built against the real Week-1 API (`day - 2/QuotesApi`, `dotnet run`,
 `http://localhost:5225`) — no mock data, no invented endpoints, no modified
 Week-1 code.
+
+This is an iteration on an earlier version of this task that had list+detail
+as a single page with no routing and no create form. That version's README
+content below has been updated in place rather than kept as a separate
+section, since several of its claims (e.g. "no `effect()` is used anywhere")
+stopped being true once routing was added.
 
 ## Angular version actually installed (checked before writing any code)
 
@@ -14,14 +21,15 @@ directly rather than assuming from older tutorials:
 
 - `signal`, `computed`, `linkedSignal`, `untracked` — stable.
 - `resource()` — present, but still tagged `@experimental 19.0` in this exact
-  installed version. Deliberately **not used** here: the task asked for
-  "signals for the feature state" with "HTTP/API work inside a service," and
-  `resource()` bundles the fetch and the signal together in a way that would
-  have blurred that separation — plus it's still experimental in the version
-  actually installed. Plain `signal()`/`computed()` with imperative service
-  methods is what's used instead; see `quotes-store.ts`.
+  installed version. Not used, for the same reason as before: it bundles the
+  fetch and the signal together in a way that would blur the "signals for
+  state, HTTP in a service" split this task asks for.
+- `@angular/forms/signals` (Signal Forms, seen in Day 14 Task 2's create-quote
+  rebuild) — also experimental. This is why the create-quote form merged in
+  below is based on Day 14 **Task 1**'s stable `ReactiveFormsModule` version,
+  not Task 2's Signal Forms version.
 
-## The real API contract (this task reuses, doesn't re-derive)
+## The real API contract (reused, not re-derived)
 
 ```
 GET /api/quotes?page=1&size=5
@@ -32,198 +40,284 @@ GET /api/quotes/3
 
 GET /api/quotes/999999
 (empty body, HTTP 404)
+
+POST /api/quotes  { "author": "...", "text": "..." }  ->  201, the created Quote
+  - requires a Bearer token (.RequireAuthorization() in ProgramExtensions.cs) -
+    an anonymous POST 401s with an empty body before reaching the handler.
 ```
 
-## Files
+## Layering / folder structure
 
 ```
 src/app/
-  quotes-api.ts                    - HTTP only: getQuotes, getQuoteById (copied from Day 16 Task 1, unchanged)
-  auth-token-store.ts, errors/app-error.ts,
-  interceptors/*.ts                - copied unmodified from Day 16 Task 1 (auth/error-mapping/retry chain)
-  quotes-store/
-    quotes-store.ts (+ .spec.ts)   - THE point of this task: signals + a service
-  app.ts / app.html / app.css      - thin view: reads QuotesStore's signals, calls its methods, holds no state itself
-  app.config.ts                    - provideZonelessChangeDetection + the same interceptor chain
+  core/                             - infrastructure, nothing feature-specific
+    quotes-api.ts                     HTTP only: getQuotes, getQuoteById, createQuote
+    auth-api.ts                       HTTP only: login
+    auth-token-store.ts                in-memory signal holding the access token
+    errors/app-error.ts                the typed AppError union every error handler receives
+    interceptors/*.ts (+ .spec)         auth / error-mapping / retry chain
+    auth/auth.guard.ts (+ .spec)       CanActivateFn: redirect to /login when signed out
+  state/
+    quotes-store/quotes-store.ts (+.spec) - THE point of this task: signals + a service
+  features/                          - routed, user-facing; each depends on core/ and state/, never on a sibling feature
+    quote-list/        - eager (index route)
+    quote-detail/       - lazy
+    create-quote/        - lazy, guarded (+.spec, +.validators.ts)
+    login/               - lazy
+  app.routes.ts, app.config.ts       - wiring
+  app.ts / app.html / app.css        - thin shell: nav + <router-outlet/>, no state of its own
 ```
 
-No routing in this task (Task 1 already covers routing/guards/lazy-loading) —
-this is a single view exercising the store.
+The dependency direction is one-way: `features/*` → `state/` → `core/`.
+Nothing in `core/` imports from `state/` or `features/`, and nothing in
+`state/` imports from `features/`. `quotes-store.spec.ts` and
+`auth.guard.spec.ts` both prove this in practice — they instantiate the store
+and the guard with `HttpTestingController` and never touch a component.
+
+## Routes — mirroring the backend's own grouping
+
+The backend groups its quote endpoints under one route prefix
+(`day - 2/QuotesApi/Extensions/ProgramExtensions.cs`,
+`app.MapGroup("/api/quotes")` in `MapQuoteEndpoints`). `app.routes.ts` mirrors
+that same index/new/show shape client-side:
+
+| Backend | Frontend route | Component | Loaded |
+|---|---|---|---|
+| `GET /api/quotes` | `quotes` | `QuoteList` | eager (index route) |
+| `POST /api/quotes` | `quotes/new` | `CreateQuote` | lazy, **guarded** |
+| `GET /api/quotes/{id}` | `quotes/:id` | `QuoteDetail` | lazy |
+
+`quotes/new` is registered before `quotes/:id` in the route array so the
+router doesn't try to resolve the literal string `"new"` as an `:id` first.
+
+**The guard here is different from Day 16 Task 1's.** Task 1's guard gated
+`quotes/:id` even though the real `GET /api/quotes/{id}` endpoint has no
+`.RequireAuthorization()` — that guard was a purely client-side design
+choice, documented as such. This time, `quotes/new` maps to `POST
+/api/quotes`, which genuinely does carry `.RequireAuthorization()` — an
+anonymous POST really does 401 at the API. So this guard mirrors a real
+backend rule instead of inventing one; `core/auth/auth.guard.ts` says this in
+its own comment, not just here.
 
 ## What state is represented by signals
 
-All inside `QuotesStore`, split into two independent slices - nothing
-duplicated between the store and the component:
+All inside `QuotesStore`, three independent slices, nothing duplicated
+between the store and any component:
 
-**List slice**: `page`, `pageSize`, `quotes`, `totalCount`, `listStatus`
-(`'idle' | 'loading' | 'loaded' | 'empty' | 'error'`), `listError`.
-`computed()`: `totalPages`, `canGoPrevious`, `canGoNext` — pure derivations
-from `totalCount`/`pageSize`/`page`, never stored redundantly.
-
-**Detail/selection slice**: `selectedId`, `detail`, `detailStatus`
-(`'idle' | 'loading' | 'loaded' | 'notfound' | 'error'`), `detailError`.
+- **List**: `page`, `pageSize`, `quotes`, `totalCount`, `listStatus`
+  (`'idle' | 'loading' | 'loaded' | 'empty' | 'error'`), `listError`, plus
+  `computed()` derivations `totalPages`/`canGoPrevious`/`canGoNext`.
+- **Detail/selection**: `selectedId`, `detail`, `detailStatus`
+  (`'idle' | 'loading' | 'loaded' | 'notfound' | 'error'`), `detailError`.
+- **Creation** is deliberately *not* a fourth signal slice — see below.
 
 All exposed as `.asReadonly()` signals; only `loadPage()`, `selectQuote()`,
-and `clearSelection()` can mutate them. `App` (`app.ts`) injects the store
-and holds **zero** signals of its own — every one of the "covers at least
-loading/loaded/empty/error/selected-detail" states requested lives in the
-service, not duplicated into the component the way Day 13's version put
-list+detail signals directly on the component.
+`clearSelection()`, and `createQuote()` mutate them. Every routed component
+(`QuoteList`, `QuoteDetail`, `CreateQuote`) injects the store and holds no
+list/detail state of its own.
 
-No `effect()` is used anywhere. `loadPage`/`selectQuote` are called
-imperatively (from the constructor for the initial page, from template event
-bindings for everything else) and update signals directly inside the
-`.subscribe()` callback. This sidesteps the `untracked()` dance Days 13/15/16
-Task 1 needed — that was only necessary because those fetches ran inside a
-reactive `effect()` that auto-triggered on signal changes. Nothing here
-auto-triggers, so there's no tracked-scope-vs-HTTP-call interaction to guard
-against. Simpler, and the store spec never has to think about signal
-tracking at all — just constructor + method calls.
+**Where `effect()` re-entered the picture.** The original single-page version
+of this task had no `effect()` at all — `loadPage`/`selectQuote` were called
+imperatively and that was true and worth calling out at the time. Routing
+changes that: Angular's router **reuses** a component instance across
+`/quotes/1` → `/quotes/2` navigations (same route config), so a component
+that only calls `store.selectQuote(id)` once in its constructor would never
+refetch on the second navigation. `features/quote-detail/quote-detail.ts`
+uses `effect()` reacting to the `:id` route-param input, wrapped in
+`untracked()` for the same reason Days 13/15/16-Task-1 needed it: the auth
+interceptor reads `AuthTokenStore`'s token signal synchronously during
+`.subscribe()`, and without `untracked()` that read gets attributed to the
+effect as a dependency, causing an extra unwanted refetch on every sign-in/out.
+`loadPage`/`selectQuote`/`createQuote` themselves are still plain imperative
+methods on the store — the `effect()` lives only in the one place that
+genuinely needs reactivity (a reused component reacting to a changing input),
+not in the store.
 
-## Service/API calls used
+## Why `createQuote()` returns an Observable instead of adding a third status signal
 
-- `QuotesApi.getQuotes(page, size)` → `GET /api/quotes?page=N&size=N`
-- `QuotesApi.getQuoteById(id)` → `GET /api/quotes/{id}`
+`QuotesStore` could have grown a `createStatus`/`createError` pair, parallel
+to the list/detail slices. Deliberately didn't:
 
-Both unchanged from Task 1's `quotes-api.ts` — no new endpoint, no new field.
+- List/detail status is read continuously by templates across renders
+  (`@switch` on `listStatus()`), which is exactly what a signal is for.
+- A form submission's outcome is a **one-shot** reaction — reset the form,
+  move focus, show a success link — needed by exactly one component, once,
+  right after the call. That's what `Observable.subscribe({ next, error })`
+  already models; adding a signal that only one caller ever reads once would
+  be state for its own sake.
+
+So `QuotesStore.createQuote(request)` returns
+`this.quotesApi.createQuote(request).pipe(tap(() => this.loadPage(this._page())))`
+— the store still owns the one thing only it can do (refresh the list so a
+new quote shows up), but the form-submission UX (validation, focus,
+success/error rendering) stays in `CreateQuote`, the same split Day 14's
+original component already had between "form-local" and "server response"
+concerns.
+
+## The create-quote merge from Day 14
+
+Day 14 Task 1's `CreateQuote` (`day - 14/task - 1/src/app/create-quote/`) had
+its own `CreateQuoteApi` with a bespoke `CreateQuoteFailure` union
+(`fieldErrors | unauthorized | serverMessage | network`), built by a local
+`catchError` inside that service. That's a second, parallel error-mapping
+scheme sitting next to the one this app's interceptor chain already
+produces (`AppError`, in `core/errors/app-error.ts`). Rather than carry both:
+
+- `QuotesApi.createQuote()` is a plain `http.post` — no local `catchError`.
+  `errorMappingInterceptor` (already in the chain) maps whatever comes back
+  into an `AppError`, same as every other request in this app.
+- `AppError`'s existing variants already cover all four of
+  `CreateQuoteFailure`'s cases: `'validation'` (has `fieldErrors`) for a 400
+  with field errors, `'unknown'` for the empty-body 401, `'problem'` for a
+  hand-constructed `ProblemDetails` rejection, `'network'` for status 0.
+  Nothing new was needed in `app-error.ts`.
+- The one piece of real logic Day 14 had that's specific to *this* endpoint —
+  `ValidationProblemDetails.errors` keys the field by the C# property name
+  (`"Author"`, not `"author"`) — is preserved as `fieldMessage()` in
+  `create-quote.ts`, matching case-insensitively against the form's
+  lowercase `formControlName`s.
+- The accessible form itself (labelled inputs, `aria-invalid`/
+  `aria-describedby`, focus-to-first-invalid-field, `role="alert"`/
+  `role="status"`) is carried over essentially unchanged — that part had
+  nothing to do with error-mapping duplication and was worth keeping as-is.
+
+Day 14 Task 2's Signal-Forms rebuild was **not** the base for this merge —
+see the Angular-version note above.
 
 ## Tests and verification
 
 ```
-npx ng test    → 5 spec files, 23 passed
-npx ng build   → main-*.js 148.81 kB / 43.60 kB transfer, no errors
+npx ng test    → 6 spec files, 33 passed
+npx ng build   → main-*.js 6.52 kB; lazy chunks: create-quote (6.32 kB),
+                 login (2.37 kB), quote-detail (2.01 kB) - quote-list stays
+                 in the initial bundle as the index route
 ```
 
-`quotes-store.spec.ts` (9 tests) is the core of "test the important state
-transitions and API behaviour," against `HttpTestingController` +
-`errorMappingInterceptor` only (auth/retry are irrelevant to what's being
-tested and already covered by their own spec files copied from Task 1):
+`quotes-store.spec.ts` (11 tests): the original 9 (construction/loading,
+empty, error, `loadPage` params, stale-response guards for both list and
+detail, `selectQuote`, real-404 → `'notfound'`, `clearSelection`) plus 2 new
+ones for `createQuote()`:
 
-- constructor loads page 1 and starts `listStatus() === 'loading'`
-- a 200 with items → `'loaded'`, a 200 with `items: []` → `'empty'`
-- a failed request → `'error'` with the mapped `AppError.message` preserved
-- `loadPage(2)` requests the next page with the right `page`/`size` params
-- **stale-response guard, list**: `loadPage(2)` then `loadPage(3)` before
-  either resolves; flushing page 3 first and the now-stale page 2 second
-  still leaves the store showing page 3's data
-- `selectQuote(id)` → `'loading'` → `'loaded'` with the real detail shape
-- a real 404 (empty body, matching the curl above) → `'notfound'`, not the
-  generic `'error'`
-- **stale-response guard, detail**: same race as above, for
-  `selectQuote(1)` then `selectQuote(2)`
-- `clearSelection()` resets `selectedId`/`detail`/`detailStatus` to idle/null
+- posts the request, emits the created quote, and triggers exactly one
+  follow-up `GET /api/quotes` (the list refresh) — proving the store's own
+  side effect actually fires, not just that the POST succeeds
+- a failed POST propagates a mapped `AppError` (asserted as `kind ===
+  'validation'`) and does **not** trigger a list refresh
 
-`app.spec.ts` (2 tests) confirms the component wiring: renders the store's
-loading/loaded states, and a real click calls `selectQuote` and renders the
-resulting detail.
+`create-quote.spec.ts` (8 tests, adapted from Day 14's spec onto the new
+`QuotesStore`/`AppError`-based version): accessible empty state, client-side
+required/blank/max-length validation with focus management, a real POST
+success (asserting the success message *and* the resulting list-refresh
+`GET`), a real 401 (empty body) rendering a sign-in message, a real
+field-validation 400 focusing the right control, and a network failure
+rendering a distinct message. One assertion in the ported test was actually
+wrong on first run — see below.
+
+`auth.guard.spec.ts` (2 tests): redirects to `/login?returnUrl=%2Fquotes%2Fnew`
+when signed out, allows activation when a token is present. Interceptor spec
+files (3, unchanged) are carried over as-is.
 
 **Exercised against the live API** (`ng serve` + real `dotnet run`, driven
-with headless Chromium since no GUI is available in this environment — same
-approach as Task 1's verification):
+with headless Chromium — no GUI available in this environment):
 
-- List renders 5 real items from `GET /api/quotes?page=1&size=5`.
-- Clicking the second quote (`id=3`, author `Test`) fires `GET
-  /api/quotes/3` and the detail panel's author matches the list row's
-  author exactly.
-- Clicking "Next" fires `GET /api/quotes?page=2&size=5` and the pager
-  correctly shows "Page 2 of 2" (`totalCount=6`, `pageSize=5`).
-
-The real 404 path (`GET /api/quotes/999999`) is verified by the unit test
-above rather than by clicking through the browser: this UI has no input for
-an arbitrary id (by design - "keep the state simple," no extra text box
-that isn't otherwise needed), so it only ever requests ids that came from
-the real list. The empty-body/404 shape itself was already confirmed by curl
-in Task 1 against this same endpoint; the test asserts the store maps it to
-`'notfound'` rather than the generic `'error'`.
+1. List loads 5 real items from `GET /api/quotes?page=1&size=5`.
+2. Clicking "+ Add a quote" while signed out redirects to
+   `/login?returnUrl=%2Fquotes%2Fnew` — the real guard, not just its unit test.
+3. Signing in with the real seeded user (`test@example.com`/`password123`)
+   lands back on `/quotes/new` (the return URL survived the round trip).
+4. Submitting a real quote (`author: "Playwright Bot <n>"`) fires a real
+   `POST /api/quotes`, shows `"Quote #8 by Playwright Bot <n> was added."`,
+   and the form resets.
+5. Navigating back to the list (in-app, not a hard reload — a hard reload
+   would lose the in-memory token) shows `totalCount` went from 6 to 7. The
+   new quote (id 8) did **not** appear on page 1 — confirmed by curling
+   `GET /api/quotes?page=2&size=5` directly, which shows it on page 2. This
+   is correct pagination behaviour (ids are ascending, the list refresh
+   reloads the *current* page, not "page containing the newest item"), not a
+   bug — flagging it here so it doesn't get mistaken for one.
 
 ## A mistake caught while reviewing my own diff
 
-`auth-api.ts` (the `AuthApi.login()` service) was copied over from Task 1's
-scaffolding along with `auth-token-store.ts` and the interceptors, then never
-used anywhere: this task has no login UI and no code ever calls `.login()`.
-Grepping the new source tree for `AuthApi` turned up exactly one match — its
-own class declaration — confirming it was dead weight, not a dependency of
-anything. Deleted it.
+The ported `create-quote.spec.ts` test for the 401 case asserted
+`.toContain('signed in')`, copied from Day 14's original test almost
+verbatim. It failed on the first real run:
 
-`AuthTokenStore` and `authInterceptor` were kept, deliberately: `authInterceptor`
-genuinely reads `AuthTokenStore.currentToken()` inside the real HTTP chain
-wired up in `app.config.ts`, so removing *those* would mean hand-rolling a
-thinner interceptor chain instead of reusing Task 1's — the opposite of what
-"reuse where appropriate" asked for. The distinction is "does anything call
-this" (no, for `AuthApi`) vs. "is this wired into a chain that's actually
-used" (yes, for the token store/interceptor) - both true `providedIn: 'root'`
-services, only one of them actually reachable.
+```
+AssertionError: expected 'You need to sign in to do that.' to contain 'signed in'
+```
 
-## When this would actually need signal-store/NgRx (my judgment call, not the agent's)
+Day 14's own bespoke error mapping produced different wording than this
+app's shared `errorMappingInterceptor` (`genericMessageForStatus(401)` in
+`core/interceptors/error-mapping-interceptor.ts` says "sign in", not "signed
+in"). The fix is in the test, not the app — `errorMappingInterceptor`'s
+message is the one already used consistently everywhere else in this app
+(Day 15, Day 16 Task 1's login form, etc.), so changing the app to match a
+copy-pasted test assertion would have been the wrong direction. Caught by
+actually running the test against the real interceptor chain rather than
+trusting that a ported assertion would still hold.
 
-This stays a plain-signals service as long as three things hold: (1) one
-service owns state that only one feature area reads, (2) state transitions
-are simple enough to write by hand as a handful of `.set()` calls without
-needing selectors, effects-with-cleanup, or entity normalization, and (3)
-nothing outside this feature needs to react to its state changes.
+A second, non-test issue caught in the same pass: `auth-api.ts` had been
+deleted in the previous iteration of this task (it was genuinely dead code —
+nothing called `AuthApi.login()` when this was a single unrouted page). Now
+that a login flow is back, `auth-api.ts` was re-added rather than resurrected
+by mistake — worth noting only because it's a case of the *same file* being
+correctly dead in one version of this task and correctly needed in the next;
+neither state was a leftover oversight.
 
-I'd reach for `@ngrx/signals` (not full NgRx-with-actions, which is a bigger
-jump again) at the point where **any one** of these starts being true:
+## When this would actually need signal-store/NgRx (my judgment call)
 
-- **Cross-feature sharing with independent write access.** If a second,
-  unrelated feature (say, a "recently viewed quotes" widget in a totally
-  different part of the app) needed to both read *and* write into the same
-  quotes state, a plain injected service still technically works, but you
-  lose the tooling (devtools time-travel, structured update tracing) that
-  makes multiple writers into shared state debuggable. One writer, many
-  readers - like this store today - doesn't need that yet.
-- **The state shape stops being "a couple of lists and a selection."** Once
-  you're normalizing entities (e.g. quotes referenced from multiple
-  collections, needing a single normalized `Record<id, Quote>` so an edit
-  in one place is visible everywhere), hand-writing that normalization and
-  its update logic in a plain service is exactly the boilerplate
+Unchanged reasoning from before, still holds after adding create: this
+stays a plain-signals service as long as (1) one service owns state that
+only this feature area reads, (2) transitions are simple `.set()` calls
+without selectors/entity-normalization, and (3) nothing outside this feature
+needs to react to its changes. I'd reach for `@ngrx/signals` when any of the
+following starts being true:
+
+- **Cross-feature sharing with independent write access** — e.g. a
+  "recently viewed quotes" widget elsewhere in the app needing to both read
+  and write the same quotes state. One writer (this feature), many readers
+  is fine as a plain service; multiple independent writers is where the
+  devtools/tracing story starts mattering.
+- **Entity normalization** — if quotes started being referenced from
+  multiple places (e.g. collections) such that an edit in one place must be
+  visible everywhere, hand-writing that normalization is exactly what
   `signalStore`'s entity helpers exist to remove.
-- **The number of interdependent derived signals grows past a handful.**
-  Right now there are 3 `computed()`s, each depending on 1-2 signals. If
-  this feature grew to where changing one signal had to correctly cascade
-  through 8-10 interdependent `computed()`s, the store class itself becomes
-  the hard-to-review part, and `signalStore`'s more declarative
-  `withComputed`/`withMethods` composition starts paying for itself.
-- **Optimistic updates with rollback, or undo/redo.** Nothing here mutates
-  anything (both endpoints used are `GET`s) - the moment a mutation needs
-  "update the UI immediately, roll back if the request fails," that's
-  exactly the kind of state-machine logic that's easy to get subtly wrong by
-  hand and is what `signalStore`'s update patterns are built to make safe.
+- **Interdependent derived signals growing past a handful** — there are 3
+  `computed()`s today, each depending on 1-2 signals; past 8-10 cascading
+  ones, `signalStore`'s `withComputed`/`withMethods` composition starts
+  paying for itself over a hand-rolled class.
+- **Optimistic updates with rollback, or undo/redo.** Creating a quote today
+  is a plain "submit, wait, then refresh" - it does not update the UI
+  optimistically. The moment that changes (show the new quote immediately,
+  roll back if the POST fails), that's exactly the state-machine logic
+  `signalStore`'s update patterns are built to make safe, and hand-rolling it
+  is where subtle bugs creep in.
 
-None of those are true here: one feature, one reader (the component), two
-`GET`s, two independent slices, no cross-cutting writers. Introducing
-`signalStore` today would mean adopting its API surface (`withState`,
-`withComputed`, `withMethods`, `patchState`) to express something a dozen
-lines of `signal()`/`computed()` already expresses clearly - the "don't
-introduce it just because it's available" instruction in the brief is the
-right call for this feature as it stands.
+Creating a quote *did* add a real mutation (previously everything was
+`GET`), which is the closest this task has come to one of these triggers —
+but a plain `tap()`-triggered refresh after a successful POST is still just
+"reload the data," not optimistic UI or rollback, so it doesn't cross the
+line yet. If a future task asked for the new quote to appear in the list
+*instantly*, before the refresh round-trip completes, that's the point where
+I'd stop hand-rolling it.
 
 ## What would break if the real API changed
 
-- **`GET /api/quotes` renaming a field** (e.g. `totalCount` → `total`):
-  `store.totalCount()` would silently read `undefined`; `totalPages`
-  becomes `NaN`-driven (`Math.ceil(undefined / 5)` → `NaN`, then
-  `Math.max(1, NaN)` → `NaN`), and the pager would render "Page 1 of NaN."
-  Nothing throws - it just silently degrades. The characterization-style
-  curl checks in this README are what would catch this before it shipped,
-  not a runtime guard, since none exists.
-- **`GET /api/quotes/{id}` renaming `text`/`author`/`isDeleted`**: the
-  detail panel would render `undefined` where the missing field should be;
-  same silent-degradation risk, since `getQuoteById`'s response is trusted
-  at the TypeScript type level only (`http.get<QuoteDetail>(...)`), not
-  validated at runtime.
-- **The 404-for-missing-id becoming a different shape** (e.g. a real
-  `ProblemDetails` body instead of empty): would actually be picked up
-  fine - `errorMappingInterceptor`'s `looksLikeProblemDetails()` would match
-  it and produce a message from `detail`/`title` instead of the generic
-  fallback; `quotes-store.ts`'s `err.status === 404` check for `'notfound'`
-  doesn't depend on the body shape at all, only the status code.
-- **The endpoint path itself changing** (e.g. `/api/quotes/{id}` →
-  `/api/quotes/detail/{id}`): would be a compile-time-safe but
-  runtime-visible break - `getQuoteById` would 404 against the *old* path
-  for every id, and every `selectQuote()` call would land in `'notfound'`
-  even for real ids. The store's own `'notfound'` vs `'error'` split would
-  actually mask this somewhat (a real routing bug would look identical to
-  "that quote doesn't exist" in the UI) - worth flagging as the one case
-  where this task's error handling could hide a real bug instead of a real
-  absence.
+Unchanged from before for the list/detail endpoints (field renames degrade
+silently to `undefined`/`NaN` rendering; a 404 body-shape change is absorbed
+fine by `errorMappingInterceptor`; an endpoint-path change would make
+`selectQuote()` land in `'notfound'` for every id, indistinguishable from a
+real absence). Two new ones from the create-quote merge:
+
+- **`POST /api/quotes` dropping `.RequireAuthorization()`**: the guard on
+  `quotes/new` would become a client-side-only rule with nothing backing it
+  server-side — same situation Task 1's detail guard is already in, just
+  arrived at by the API changing instead of by initial design. Nothing would
+  break; the guard would just stop mirroring a real constraint.
+- **`ValidationProblemDetails.errors` keys changing case or wording**
+  (e.g. the API started returning `"author"` lowercase instead of
+  `"Author"`): `fieldMessage()`'s case-insensitive match means a *case*
+  change wouldn't break anything, but a *field-name* change (e.g. `Author` →
+  `Name`) would silently stop highlighting the right control - the
+  server-level rejection message would still show as `serverMessage`, just
+  without the specific field getting `aria-invalid`.

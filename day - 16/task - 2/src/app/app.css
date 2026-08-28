@@ -1,72 +1,14 @@
-.page {
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: 1.5rem;
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #ddd;
   font-family: system-ui, sans-serif;
 }
 
-.subtitle {
-  color: #555;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.state.error {
-  color: #b00020;
-}
-
-.quote-list {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.quote-button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 1px solid #ddd;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-}
-
-.quote-button:hover {
-  background: #f5f5f5;
-}
-
-.quote-button.selected {
-  border-color: #6b46c1;
-  background: #f5f0ff;
-}
-
-.text {
-  margin: 0 0 0.25rem;
-}
-
-.author {
-  margin: 0;
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.deleted-flag {
-  margin-top: 1rem;
-  color: #b00020;
+.brand {
   font-weight: 600;
+  text-decoration: none;
+  color: inherit;
 }

@@ -1,0 +1,17 @@
+.page {
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: system-ui, sans-serif;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.state.error {
+  color: #b00020;
+  margin-top: 1rem;
+}

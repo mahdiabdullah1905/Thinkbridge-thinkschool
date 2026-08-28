@@ -1,0 +1,45 @@
+<main class="page">
+  <div class="header-row">
+    <div>
+      <h1>Quotes</h1>
+      <p class="subtitle">State lives in <code>QuotesStore</code>. Live data from <code>GET /api/quotes</code>.</p>
+    </div>
+    <a class="add-link" routerLink="/quotes/new">+ Add a quote</a>
+  </div>
+
+  @switch (store.listStatus()) {
+    @case ('loading') {
+      <p class="state">Loading quotes...</p>
+    }
+    @case ('error') {
+      <p class="state error">{{ store.listError()?.message }}</p>
+    }
+    @case ('empty') {
+      <p class="state">No quotes on page {{ store.page() }}.</p>
+    }
+    @default {
+      <ul class="quote-list">
+        @for (quote of store.quotes(); track quote.id) {
+          <li>
+            <a class="quote-link" [routerLink]="['/quotes', quote.id]">
+              <p class="text">"{{ quote.textPreview }}"</p>
+              <p class="author">— {{ quote.author }} ({{ quote.authorQuoteCount }} quotes)</p>
+            </a>
+          </li>
+        }
+      </ul>
+    }
+  }
+
+  @if (store.listStatus() !== 'loading') {
+    <div class="pager">
+      <button type="button" (click)="goToPage(store.page() - 1)" [disabled]="!store.canGoPrevious()">
+        Previous
+      </button>
+      <span>Page {{ store.page() }} of {{ store.totalPages() }}</span>
+      <button type="button" (click)="goToPage(store.page() + 1)" [disabled]="!store.canGoNext()">
+        Next
+      </button>
+    </div>
+  }
+</main>
