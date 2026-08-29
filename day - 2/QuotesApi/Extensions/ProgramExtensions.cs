@@ -50,6 +50,29 @@ public static class ProgramExtensions
                     ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
                 };
+
+                // Day 17: when this API is reached through the Managed-Identity BFF, the
+                // Authorization header carries the BFF's own Entra ID service token (validated
+                // separately by Container Apps' built-in auth, not by this scheme), so the
+                // end-user's HS256 JWT rides in X-User-Token instead. This reads that header
+                // FIRST; if it's absent, control falls through to this handler's normal default
+                // (reading Authorization) - so every existing caller (local dev, direct testing,
+                // anything not behind the BFF) is completely unaffected.
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (context.Request.Headers.TryGetValue("X-User-Token", out var userToken) &&
+                            userToken.Count > 0 && !string.IsNullOrWhiteSpace(userToken[0]))
+                        {
+                            var value = userToken[0]!;
+                            context.Token = value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                                ? value["Bearer ".Length..]
+                                : value;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

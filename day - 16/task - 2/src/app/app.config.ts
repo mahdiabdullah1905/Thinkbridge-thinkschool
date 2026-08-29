@@ -3,7 +3,7 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { authInterceptor } from './core/interceptors/auth-interceptor';
 import { errorMappingInterceptor } from './core/interceptors/error-mapping-interceptor';
@@ -19,6 +19,9 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     // Same chain and ordering as day - 16/task - 1: auth outermost, error-mapping
     // in the middle (converts only the final post-retry failure), retry innermost.
-    provideHttpClient(withInterceptors([authInterceptor, errorMappingInterceptor, retryInterceptor])),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([authInterceptor, errorMappingInterceptor, retryInterceptor]),
+    ),
   ],
 };
