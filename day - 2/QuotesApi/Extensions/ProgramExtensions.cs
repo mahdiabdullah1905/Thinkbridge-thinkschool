@@ -17,6 +17,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Diagnostics;
 using QuotesApi.Configuration;
 using Microsoft.Extensions.Options;
+using QuotesApi.Jobs;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace QuotesApi.Extensions;
 
@@ -87,8 +89,13 @@ public static class ProgramExtensions
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddTransient<ExceptionHandlingMiddleware>();
-        
+
         services.AddProblemDetails(); // Built-in support for ProblemDetails
+
+        services.AddSingleton<IBackgroundJobQueue>(_ => new BackgroundJobQueue(capacity: 100));
+        services.AddSingleton<IJobStatusStore, JobStatusStore>();
+        services.AddScoped<CollectionExportJob>();
+        services.AddHostedService<QueuedJobWorker>();
     }
 
     public static void MapQuoteEndpoints(this IEndpointRouteBuilder app)
@@ -207,6 +214,33 @@ public static class ProgramExtensions
 
             await repo.UpdateAsync(collection, ct);
             return Results.NoContent();
+        });
+
+        // Queues a report-generation job instead of building it on the request thread:
+        // the export walks every quote in the collection with a per-item simulated
+        // render delay, which would otherwise make this request as slow as the
+        // collection is large. The request only pays for the (fast) enqueue.
+        group.MapPost("/{id}/export", async (int id, IBackgroundJobQueue queue, IJobStatusStore statusStore, CancellationToken ct) =>
+        {
+            var jobId = Guid.NewGuid();
+            statusStore.MarkQueued(jobId);
+
+            await queue.QueueAsync(async (sp, jobCt) =>
+            {
+                var job = sp.GetRequiredService<CollectionExportJob>();
+                await job.RunAsync(jobId, id, jobCt);
+            }, ct);
+
+            return Results.Accepted($"/api/jobs/{jobId}", new { jobId });
+        });
+    }
+
+    public static void MapJobEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/api/jobs/{id}", (Guid id, IJobStatusStore statusStore) =>
+        {
+            var record = statusStore.Get(id);
+            return record is not null ? Results.Ok(record) : Results.NotFound();
         });
     }
 
