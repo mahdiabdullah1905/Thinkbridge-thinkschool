@@ -1,0 +1,45 @@
+name: Deploy Day 17 Task 1 - Static Web App
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "day - 16/task - 2/**"
+      - ".github/workflows/deploy-day17-swa.yml"
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "day - 16/task - 2/**"
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DAY17 }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "day - 16/task - 2"
+          output_location: "dist/quotes-signals-state/browser"
+          skip_app_build: false
+          app_build_command: "npm ci && npx ng build --configuration production"
+
+  close_pull_request:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close pull request
+    steps:
+      - name: Close pull request
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DAY17 }}
+          action: "close"

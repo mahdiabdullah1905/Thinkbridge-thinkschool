@@ -1,0 +1,68 @@
+<main class="page">
+  <h1>Quotes — HttpClient + interceptors</h1>
+  <p class="subtitle">
+    Live data from the Week 1 API - <code>GET /api/quotes</code>, through the
+    auth/retry/error-mapping interceptor chain.
+  </p>
+
+  <section class="list-panel">
+    <h2>Quotes</h2>
+    @switch (listStatus()) {
+      @case ('loading') {
+        <p class="state">Loading quotes...</p>
+      }
+      @case ('error') {
+        <p class="state error">{{ listError()?.message }}</p>
+      }
+      @case ('empty') {
+        <p class="state">No quotes yet.</p>
+      }
+      @default {
+        <ul class="quote-list">
+          @for (quote of quotes(); track quote.id) {
+            <li>
+              <p class="text">"{{ quote.textPreview }}"</p>
+              <p class="author">— {{ quote.author }} ({{ quote.authorQuoteCount }} quotes)</p>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </section>
+
+  <section class="login-panel">
+    <h2>Sign in</h2>
+    @if (signedIn()) {
+      <p class="state success">Signed in — the Bearer token will be attached to future requests.</p>
+    } @else {
+      <form (submit)="$event.preventDefault(); login()">
+        <label for="email">Email</label>
+        <input id="email" type="email" [ngModel]="email()" (ngModelChange)="email.set($event)" name="email" />
+
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          name="password"
+        />
+
+        <button type="submit" [disabled]="loginPending()">
+          {{ loginPending() ? 'Signing in...' : 'Sign in' }}
+        </button>
+      </form>
+
+      @if (loginError(); as err) {
+        <p class="state error" role="alert">{{ err.message }}</p>
+        @if (err.kind === 'validation') {
+          <ul class="field-errors">
+            @for (field of objectKeys(err.fieldErrors); track field) {
+              <li>{{ field }}: {{ err.fieldErrors[field].join(', ') }}</li>
+            }
+          </ul>
+        }
+      }
+    }
+  </section>
+</main>

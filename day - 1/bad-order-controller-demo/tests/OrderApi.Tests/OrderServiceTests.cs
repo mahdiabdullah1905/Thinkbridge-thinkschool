@@ -25,7 +25,13 @@ namespace OrderApi.Tests
             _repoMock = new Mock<IOrderRepository>();
             _emailMock = new Mock<IEmailService>();
             _loggerMock = new Mock<ILogger<OrderService>>();
-            _service = new OrderService(_repoMock.Object, _emailMock.Object, _loggerMock.Object);
+            var strategies = new List<IDiscountStrategy> 
+            {
+                new VipDiscountStrategy(),
+                new LoyalCustomerDiscountStrategy()
+            };
+            
+            _service = new OrderService(_repoMock.Object, _emailMock.Object, _loggerMock.Object, strategies);
         }
 
         [Fact]
@@ -87,6 +93,63 @@ namespace OrderApi.Tests
             // Assert
             // 100*1 + 50*1 = 150. Tax is 10% for Other category = 15. Total = 165
             _repoMock.Verify(r => r.SaveOrderAsync(It.Is<Order>(o => o.TotalAmount == 165m), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        // Test: validation rejects orders with negative quantity
+        [Fact]
+        public async Task ProcessOrderAsync_NegativeQuantity_ThrowsBusinessValidationException()
+        {
+            // Arrange
+            var req = CreateValidRequest();
+            req.Items[0].Quantity = -5; // Set negative quantity
+
+            var cust = new Customer { Id = 1, Status = CustomerStatus.Active, CreditLimit = 1000 };
+            _repoMock.Setup(r => r.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(cust);
+            _repoMock.Setup(r => r.GetUnpaidOrdersTotalAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(0m);
+            _repoMock.Setup(r => r.GetProductsByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<Product>
+                {
+                    new Product { Id = 10, Price = 100, Stock = 10, IsActive = true, Category = ProductCategory.Electronics }
+                });
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<BusinessValidationException>(() => _service.ProcessOrderAsync(req, CancellationToken.None));
+            Assert.Contains("Quantity must be greater than zero", ex.Message);
+        }
+
+        // Test: validation rejects orders with zero quantity
+        [Fact]
+        public async Task ProcessOrderAsync_ZeroQuantity_ThrowsBusinessValidationException()
+        {
+            // Arrange
+            var req = CreateValidRequest();
+            req.Items[0].Quantity = 0; // Set zero quantity
+
+            var cust = new Customer { Id = 1, Status = CustomerStatus.Active, CreditLimit = 1000 };
+            _repoMock.Setup(r => r.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(cust);
+            _repoMock.Setup(r => r.GetUnpaidOrdersTotalAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(0m);
+            _repoMock.Setup(r => r.GetProductsByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<Product>
+                {
+                    new Product { Id = 10, Price = 100, Stock = 10, IsActive = true, Category = ProductCategory.Electronics }
+                });
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<BusinessValidationException>(() => _service.ProcessOrderAsync(req, CancellationToken.None));
+            Assert.Contains("Quantity must be greater than zero", ex.Message);
+        }
+
+        // Test: validation rejects orders when no items are provided
+        [Fact]
+        public async Task ProcessOrderAsync_NoItemsProvided_ThrowsBusinessValidationException()
+        {
+            // Arrange
+            var req = CreateValidRequest();
+            req.Items.Clear(); // Set empty items list
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<BusinessValidationException>(() => _service.ProcessOrderAsync(req, CancellationToken.None));
+            Assert.Contains("Order must contain at least one item", ex.Message);
         }
 
         private CreateOrderDto CreateValidRequest()

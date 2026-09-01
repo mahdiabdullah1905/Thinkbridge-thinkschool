@@ -1,0 +1,47 @@
+<main class="page">
+  <h1>Quotes</h1>
+  <p class="subtitle">Live data from the Week 1 API - <code>GET /api/quotes</code></p>
+
+  <form class="jump" (submit)="$event.preventDefault()">
+    <label for="pageInput">Go to page</label>
+    <input
+      id="pageInput"
+      type="number"
+      min="1"
+      [value]="page()"
+      (change)="jumpToPage($any($event.target).value)"
+    />
+  </form>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="state">Loading quotes...</p>
+    }
+    @case ('error') {
+      <p class="state error">{{ error() }}</p>
+    }
+    @case ('empty') {
+      <p class="state">No quotes on page {{ page() }}.</p>
+    }
+    @default {
+      <ul class="quote-list">
+        @for (quote of quotes(); track quote.id) {
+          <li>
+            <p class="text">"{{ quote.textPreview }}"</p>
+            <p class="author">— {{ quote.author }} ({{ quote.authorQuoteCount }} quotes)</p>
+          </li>
+        }
+      </ul>
+    }
+  }
+
+  @if (status() !== 'loading') {
+    <div class="pager">
+      <button type="button" (click)="goToPage(page() - 1)" [disabled]="!canGoPrevious()">
+        Previous
+      </button>
+      <span>Page {{ page() }} of {{ totalPages() }}</span>
+      <button type="button" (click)="goToPage(page() + 1)" [disabled]="!canGoNext()">Next</button>
+    </div>
+  }
+</main>

@@ -1,0 +1,53 @@
+<section class="page">
+  <h1>Add a quote</h1>
+  <p class="subtitle">Submits to <code>POST /api/quotes</code> on the Week-1 API (Signal Forms preview).</p>
+
+  <!-- [formRoot] sets novalidate and wires the native submit event itself - there is no
+       (ngSubmit) here and no onSubmit() method in the component. -->
+  <form [formRoot]="quoteForm">
+    <div class="field">
+      <label for="author">Author</label>
+      <input
+        id="author"
+        type="text"
+        [formField]="quoteForm.author"
+        [attr.aria-invalid]="authorErrorMessage() ? 'true' : 'false'"
+        [attr.aria-describedby]="authorErrorMessage() ? 'author-error' : null"
+      />
+      @if (authorErrorMessage(); as message) {
+        <p id="author-error" class="field-error" role="alert">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="text">Quote text</label>
+      <textarea
+        id="text"
+        rows="4"
+        [formField]="quoteForm.text"
+        [attr.aria-invalid]="textErrorMessage() ? 'true' : 'false'"
+        [attr.aria-describedby]="textErrorMessage() ? 'text-error' : null"
+      ></textarea>
+      @if (textErrorMessage(); as message) {
+        <p id="text-error" class="field-error" role="alert">{{ message }}</p>
+      }
+    </div>
+
+    @if (rootErrorMessage(); as message) {
+      <p class="server-message" role="alert">{{ message }}</p>
+    }
+
+    @if (createdQuote(); as quote) {
+      <p class="success-message" role="status">Quote #{{ quote.id }} by {{ quote.author }} was added.</p>
+    }
+
+    <button
+      type="submit"
+      [attr.aria-busy]="quoteForm().submitting() ? 'true' : null"
+      [attr.aria-disabled]="quoteForm().submitting() ? 'true' : null"
+      [class.is-busy]="quoteForm().submitting()"
+    >
+      {{ quoteForm().submitting() ? 'Adding…' : 'Add quote' }}
+    </button>
+  </form>
+</section>

@@ -1,0 +1,20 @@
+[
+  {
+    "author": "Author 0",
+    "quoteCount": 20,
+    "quotes": [
+      "Quote 0 from author 0.",
+      "Quote 1 from author 0.",
+      "... (18 more) ..."
+    ]
+  },
+  {
+    "author": "Author 1",
+    "quoteCount": 20,
+    "quotes": [
+      "Quote 0 from author 1.",
+      "Quote 1 from author 1.",
+      "... (18 more) ..."
+    ]
+  }
+]

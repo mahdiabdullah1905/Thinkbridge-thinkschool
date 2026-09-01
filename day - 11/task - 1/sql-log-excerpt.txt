@@ -1,0 +1,37 @@
+GET /api/authors - single isolated request, no concurrent load, TraceId 0e55b4410a206d24fce0a5a182d43c71
+Measured wall-clock time (curl): 1.024s
+
+--- Query 1 of 501: distinct author names ---
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Creating DbCommand for 'ExecuteReader'.
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Created DbCommand for 'ExecuteReader' (1ms).
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Initialized DbCommand for 'ExecuteReader' (8ms).
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Executing DbCommand [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT DISTINCT "q"."Author"
+FROM "Quotes" AS "q"
+WHERE NOT ("q"."IsDeleted")
+[09:41:40 INF] [0e55b4410a206d24fce0a5a182d43c71] Executed DbCommand (12ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+
+--- Query 2 of 501: first per-author query (Author 0) ---
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Executing DbCommand [Parameters=[@author='?' (Size = 8)], CommandType='Text', CommandTimeout='30']
+SELECT "q"."Id", "q"."Author", "q"."IsDeleted", "q"."Text"
+FROM "Quotes" AS "q"
+WHERE NOT ("q"."IsDeleted") AND "q"."Author" = @author
+[09:41:40 INF] [0e55b4410a206d24fce0a5a182d43c71] Executed DbCommand (3ms) [Parameters=[@author='?' (Size = 8)], CommandType='Text', CommandTimeout='30']
+
+--- Query 3 of 501: second per-author query (Author 1) ---
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Executing DbCommand [Parameters=[@author='?' (Size = 8)], CommandType='Text', CommandTimeout='30']
+SELECT "q"."Id", "q"."Author", "q"."IsDeleted", "q"."Text"
+FROM "Quotes" AS "q"
+WHERE NOT ("q"."IsDeleted") AND "q"."Author" = @author
+[09:41:40 INF] [0e55b4410a206d24fce0a5a182d43c71] Executed DbCommand (0ms) [Parameters=[@author='?' (Size = 8)], CommandType='Text', CommandTimeout='30']
+
+... (497 more per-author SELECTs, identical shape, same TraceId, one per remaining author) ...
+
+--- Query 501 of 501: last per-author query (Author 499) ---
+[09:41:40 DBG] [0e55b4410a206d24fce0a5a182d43c71] Executing DbCommand [Parameters=[@author='?' (Size = 10)], CommandType='Text', CommandTimeout='30']
+SELECT "q"."Id", "q"."Author", "q"."IsDeleted", "q"."Text"
+FROM "Quotes" AS "q"
+WHERE NOT ("q"."IsDeleted") AND "q"."Author" = @author
+[09:41:40 INF] [0e55b4410a206d24fce0a5a182d43c71] Executed DbCommand (1ms) [Parameters=[@author='?' (Size = 10)], CommandType='Text', CommandTimeout='30']
+
+Total "Executed DbCommand" entries under this one TraceId: 501 (1 + 500)

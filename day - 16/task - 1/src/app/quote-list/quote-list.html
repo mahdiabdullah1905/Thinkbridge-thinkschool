@@ -1,0 +1,38 @@
+<main class="page">
+  <h1>Quotes</h1>
+  <p class="subtitle">Live data from <code>GET /api/quotes</code>.</p>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="state">Loading quotes...</p>
+    }
+    @case ('error') {
+      <p class="state error">{{ error()?.message }}</p>
+    }
+    @case ('empty') {
+      <p class="state">No quotes on page {{ page() }}.</p>
+    }
+    @default {
+      <ul class="quote-list">
+        @for (quote of quotes(); track quote.id) {
+          <li>
+            <a class="quote-link" [routerLink]="['/quotes', quote.id]">
+              <p class="text">"{{ quote.textPreview }}"</p>
+              <p class="author">— {{ quote.author }} ({{ quote.authorQuoteCount }} quotes)</p>
+            </a>
+          </li>
+        }
+      </ul>
+    }
+  }
+
+  @if (status() !== 'loading') {
+    <div class="pager">
+      <button type="button" (click)="goToPage(page() - 1)" [disabled]="!canGoPrevious()">
+        Previous
+      </button>
+      <span>Page {{ page() }} of {{ totalPages() }}</span>
+      <button type="button" (click)="goToPage(page() + 1)" [disabled]="!canGoNext()">Next</button>
+    </div>
+  }
+</main>

@@ -1,0 +1,75 @@
+.page {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  font-family:
+    'Avenir Next LT Pro',
+    Mulish,
+    system-ui,
+    sans-serif;
+}
+
+.subtitle {
+  color: #55506b;
+  margin-bottom: 1.5rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+}
+
+label {
+  font-weight: 600;
+}
+
+input,
+textarea {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #c9c4dc;
+  border-radius: 0.375rem;
+}
+
+input[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: #b3261e;
+}
+
+.field-error {
+  color: #b3261e;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.server-message {
+  color: #b3261e;
+  margin-bottom: 1rem;
+}
+
+.success-message {
+  color: #1b6e3c;
+  margin-bottom: 1rem;
+}
+
+button[type='submit'] {
+  font: inherit;
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: #6b4ee6;
+  color: #fff;
+  cursor: pointer;
+}
+
+button[type='submit'].is-busy {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+button[type='submit']:focus-visible {
+  outline: 2px solid #6b4ee6;
+  outline-offset: 2px;
+}

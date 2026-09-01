@@ -1,0 +1,73 @@
+<!--
+Captured from a real deadlock via Extended Events (sqlserver.xml_deadlock_report),
+against day8-mssql-experiment / Day8IndexDemo, running deadlock-repro.sql.
+Session/setup used to capture this is at the top of deadlock-repro.sql.
+
+Only the <stackFrames> blocks (raw engine call-stack addresses, not useful for
+diagnosing the deadlock) were stripped for readability. Everything else -
+victim-list, both processes' actual attributes and inputbuf, and the
+resource-list - is exactly what sys.fn_xe_file_target_read_file returned.
+-->
+<deadlock>
+  <victim-list>
+    <victimProcess id="processf15a23468" />
+  </victim-list>
+  <process-list>
+    <process id="processf15a23468" waitresource="KEY: 5:72057594045792256 (d80cd6e569d5)"
+      waittime="4538" lockMode="U" spid="52" status="suspended"
+      isolationlevel="read committed (2)" currentdbname="Day8IndexDemo"
+      lasttranstarted="2026-08-19T04:51:04.303" clientapp="SQLCMD" hostname="1c1a9ee3cb82">
+      <executionStack>
+        <frame procname="adhoc" line="5" />
+      </executionStack>
+      <inputbuf>
+SET LOCK_TIMEOUT -1;
+BEGIN TRANSACTION;
+UPDATE dbo.Orders SET Amount = Amount + 0.00 WHERE OrderId = 11111;
+WAITFOR DELAY '00:00:05';
+UPDATE dbo.Orders SET Amount = Amount + 0.00 WHERE OrderId = 22222;
+COMMIT TRANSACTION;
+SELECT 'session1 completed' AS Result;
+      </inputbuf>
+    </process>
+    <process id="processf15a1aca8" waitresource="KEY: 5:72057594045792256 (7c71e063566a)"
+      waittime="2601" lockMode="U" spid="55" status="suspended"
+      isolationlevel="read committed (2)" currentdbname="Day8IndexDemo"
+      lasttranstarted="2026-08-19T04:51:06.243" clientapp="SQLCMD" hostname="1c1a9ee3cb82">
+      <executionStack>
+        <frame procname="adhoc" line="5" />
+      </executionStack>
+      <inputbuf>
+SET LOCK_TIMEOUT -1;
+BEGIN TRANSACTION;
+UPDATE dbo.Orders SET Amount = Amount + 0.00 WHERE OrderId = 22222;
+WAITFOR DELAY '00:00:05';
+UPDATE dbo.Orders SET Amount = Amount + 0.00 WHERE OrderId = 11111;
+COMMIT TRANSACTION;
+SELECT 'session2 completed' AS Result;
+      </inputbuf>
+    </process>
+  </process-list>
+  <resource-list>
+    <!-- Row lock on OrderId 11111 (via the clustered index): held X by
+         session 55, waited on U by session 52 -->
+    <keylock objectname="Day8IndexDemo.dbo.Orders" indexname="CIX_Orders_OrderId" mode="X">
+      <owner-list>
+        <owner id="processf15a1aca8" mode="X" />
+      </owner-list>
+      <waiter-list>
+        <waiter id="processf15a23468" mode="U" requestType="wait" />
+      </waiter-list>
+    </keylock>
+    <!-- Row lock on OrderId 22222 (via the clustered index): held X by
+         session 52, waited on U by session 55 -->
+    <keylock objectname="Day8IndexDemo.dbo.Orders" indexname="CIX_Orders_OrderId" mode="X">
+      <owner-list>
+        <owner id="processf15a23468" mode="X" />
+      </owner-list>
+      <waiter-list>
+        <waiter id="processf15a1aca8" mode="U" requestType="wait" />
+      </waiter-list>
+    </keylock>
+  </resource-list>
+</deadlock>
