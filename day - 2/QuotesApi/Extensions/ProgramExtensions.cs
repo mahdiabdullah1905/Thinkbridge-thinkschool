@@ -19,6 +19,10 @@ using QuotesApi.Configuration;
 using Microsoft.Extensions.Options;
 using QuotesApi.Jobs;
 using Microsoft.Extensions.DependencyInjection;
+using QuotesApi.Messaging;
+using Azure.Identity;
+using Azure.Messaging.ServiceBus;
+using Microsoft.Extensions.Azure;
 
 namespace QuotesApi.Extensions;
 
@@ -96,6 +100,46 @@ public static class ProgramExtensions
         services.AddSingleton<IJobStatusStore, JobStatusStore>();
         services.AddScoped<CollectionExportJob>();
         services.AddHostedService<QueuedJobWorker>();
+
+        services.Configure<ServiceBusOptions>(configuration.GetSection(ServiceBusOptions.SectionName));
+        var serviceBusNamespace = configuration[$"{ServiceBusOptions.SectionName}:FullyQualifiedNamespace"];
+        if (!string.IsNullOrWhiteSpace(serviceBusNamespace))
+        {
+            // Same rationale as the Key Vault credential in Program.cs: Managed Identity is only
+            // reachable on actual Azure-hosted compute, so excluding it here avoids a slow IMDS
+            // probe on local dev, falling straight through to the developer's own `az login`
+            // session (AzureCliCredential). If this API is deployed to the Container App, drop
+            // this exclusion (or gate it on environment) and grant its system-assigned managed
+            // identity the same two Service Bus Data roles granted to the developer for local use.
+            var serviceBusCredential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            {
+                ExcludeManagedIdentityCredential = true
+            });
+
+            services.AddAzureClients(builder =>
+            {
+                builder.AddServiceBusClientWithNamespace(serviceBusNamespace).WithCredential(serviceBusCredential);
+            });
+
+            services.AddSingleton<ICollectionExportEventPublisher, CollectionExportEventPublisher>();
+            services.AddScoped<IProcessedMessageStore, ProcessedMessageStore>();
+        }
+    }
+
+    /// <summary>
+    /// Kept separate from AddInfrastructure so tests that spin up the app for
+    /// unrelated reasons (auth, collections, etc.) don't also open real Service
+    /// Bus connections. Call this only where you actually want the consumers
+    /// running (Program.cs for the real app; explicitly, per test, where a test
+    /// wants to exercise the live consumer flow).
+    /// </summary>
+    public static void AddServiceBusConsumers(this IServiceCollection services)
+    {
+        services.AddSingleton<IHostedService>(sp =>
+            ActivatorUtilities.CreateInstance<ExportProcessingWorker>(sp, "worker-1"));
+        services.AddSingleton<IHostedService>(sp =>
+            ActivatorUtilities.CreateInstance<ExportProcessingWorker>(sp, "worker-2"));
+        services.AddHostedService<ExportAuditWorker>();
     }
 
     public static void MapQuoteEndpoints(this IEndpointRouteBuilder app)
@@ -216,20 +260,18 @@ public static class ProgramExtensions
             return Results.NoContent();
         });
 
-        // Queues a report-generation job instead of building it on the request thread:
-        // the export walks every quote in the collection with a per-item simulated
-        // render delay, which would otherwise make this request as slow as the
-        // collection is large. The request only pays for the (fast) enqueue.
-        group.MapPost("/{id}/export", async (int id, IBackgroundJobQueue queue, IJobStatusStore statusStore, CancellationToken ct) =>
+        // Day 19: publishes a CollectionExportRequested event to the collection-exports
+        // Service Bus topic instead of building the report (or even enqueueing it
+        // in-process) on the request thread. Two subscriptions each get their own copy;
+        // the export-processing subscription's workers do the real work, the
+        // export-audit-log subscription just records that a request happened. The
+        // Service Bus MessageId doubles as the job id returned to the caller.
+        group.MapPost("/{id}/export", async (int id, ICollectionExportEventPublisher publisher, IJobStatusStore statusStore, CancellationToken ct) =>
         {
             var jobId = Guid.NewGuid();
             statusStore.MarkQueued(jobId);
 
-            await queue.QueueAsync(async (sp, jobCt) =>
-            {
-                var job = sp.GetRequiredService<CollectionExportJob>();
-                await job.RunAsync(jobId, id, jobCt);
-            }, ct);
+            await publisher.PublishAsync(jobId.ToString(), new CollectionExportRequestedEvent(id, DateTimeOffset.UtcNow), ct);
 
             return Results.Accepted($"/api/jobs/{jobId}", new { jobId });
         });

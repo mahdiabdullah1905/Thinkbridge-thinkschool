@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
+    public DbSet<ExportAuditEntry> ExportAuditEntries => Set<ExportAuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +53,17 @@ public class AppDbContext : DbContext
             b.HasKey(r => r.Id);
             b.HasIndex(r => r.TokenHash).IsUnique();
             b.HasIndex(r => r.FamilyId);
+        });
+
+        modelBuilder.Entity<ProcessedMessage>(b =>
+        {
+            b.HasKey(p => new { p.ConsumerName, p.MessageId });
+        });
+
+        modelBuilder.Entity<ExportAuditEntry>(b =>
+        {
+            b.HasKey(a => a.Id);
+            b.HasIndex(a => a.MessageId);
         });
     }
 }

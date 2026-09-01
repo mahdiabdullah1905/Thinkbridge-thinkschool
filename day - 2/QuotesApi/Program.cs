@@ -40,6 +40,16 @@ builder.Services.AddTransient<TraceIdMiddleware>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Kept out of AddInfrastructure and off during automated "Testing" host startups so the many
+// unrelated tests that spin up this app don't also open real Service Bus connections. The
+// ServiceBus:EnableConsumers switch lets a manual run publish a message and inspect it sitting
+// in the topic/subscriptions before anything drains it.
+if (!builder.Environment.IsEnvironment("Testing") &&
+    builder.Configuration.GetValue("ServiceBus:EnableConsumers", true))
+{
+    builder.Services.AddServiceBusConsumers();
+}
+
 // Registered for future outbound calls (e.g. a third-party quotes source, Entra ID); no endpoint
 // consumes it yet. See Extensions/ResilienceExtensions.cs.
 builder.Services.AddResilientExternalServiceClient();
